@@ -6,6 +6,18 @@ This project follows a philosophy of **transparent provenance**: every editorial
 
 ---
 
+## [0.3.1] — 2026-03-15
+
+### Revert — UX/Design Recommendations Rolled Back
+
+Seven UX/design recommendations were implemented and then reverted in the same release cycle. The changes included: (1) shifting Medium-High severity badges from blue to amber with accessibility icons, (2) an expandable control family legend, (3) enhanced row hover affordance, (4) thicker tab underlines with brighter active colors, (5) monospace typography for identifiers with increased row height, (6) responsive breakpoints for mobile and tablet, and (7) a sticky density legend with an expandable methodology panel and a centralized DESIGN_TOKENS constant.
+
+These changes were reverted because the cumulative visual impact degraded the overall user experience rather than improving it. The original design — while simpler — communicated the crosswalk data more effectively. This decision reflects a core principle: **design changes must serve the data, not compete with it.** When seven simultaneous UX modifications are applied to a data-dense compliance tool, the result can overwhelm the reader rather than guide them. Future UX improvements will be introduced incrementally, tested individually, and evaluated against the standard of whether they make the crosswalk easier to read, not just more visually sophisticated.
+
+The revert was applied to both the hosted web application and the GitHub repository source code. No data, content accuracy, or legal changes from v0.3.0 or v0.2.0 were affected.
+
+---
+
 ## [0.3.0] — 2026-03-15
 
 ### Content Accuracy and Intellectual Honesty Overhaul
