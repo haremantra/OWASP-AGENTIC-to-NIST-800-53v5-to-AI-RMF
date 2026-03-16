@@ -1,50 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
-
-// ─── Design System Tokens ───────────────────────────────────────
-// Centralized design values for the OWASP-NIST Crosswalk UI.
-// Severity: Red → Orange → Amber (traditional warning spectrum)
-// Typography: Sans-serif for prose, Monospace for identifiers/codes
-// Spacing: 44px row height for readability, 4px tab underline
-// Breakpoints: <768px mobile (list view), 768-1200px tablet (scroll), >1200px desktop (full heatmap)
-const DESIGN_TOKENS = {
-  colors: {
-    severityCritical: "#DC2626",
-    severityHigh: "#D97706",
-    severityMediumHigh: "#FBBF24",
-    bgDark: "#0a0e1a",
-    bgCardDark: "#111827",
-    bgHoverRow800: "rgba(59, 130, 246, 0.08)",
-    bgHoverRowRMF: "rgba(16, 185, 129, 0.08)",
-    textPrimary: "#F1F5F9",
-    textSecondary: "#94A3B8",
-    textMuted: "#64748B",
-    accentBlue: "#60A5FA",
-    accentBlueDark: "#2563EB",
-    tabActive: "#93C5FD",
-    tabInactive: "#64748B",
-    tabUnderline: "#60A5FA",
-    borderSubtle: "#1E293B",
-    borderMedium: "#475569"
-  },
-  fonts: {
-    mono: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace",
-    sans: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-  },
-  spacing: {
-    rowHeight: "44px",
-    tabPadding: "12px 24px",
-    cardGap: "16px",
-    sectionGap: "32px"
-  },
-  transitions: {
-    fast: "150ms ease",
-    medium: "200ms ease"
-  },
-  breakpoints: {
-    mobile: 768,
-    tablet: 1200
-  }
-};
+import { useState, useMemo } from "react";
 
 // ─── Data Model: The Middleware Bridge ─────────────────────────────
 const OWASP_ASI = [
@@ -145,20 +99,20 @@ const CROSSWALK = {
       { func: "MEASURE", cats: ["MS-1 Risk Metrics", "MS-3 Risk Tracking"], rationale: "Credential-lifetime sampling, delegation-depth metrics, and access certification pass rates." },
       { func: "MANAGE", cats: ["MG-2 Risk Treatment", "MG-4 Residual Risk"], rationale: "Automated revocation on session termination (MG-2). Residual risk from implicit trust inheritance (MG-4)." },
     ],
-    evidence: "Confused deputy attacks via shared AWS credentials; Privilege escalation via inherited OAuth scopes; Token reuse across agent boundaries."
+    evidence: "CVE-2025-31491; Confused deputy via cross-agent trust; Memory-based SSH credential escalation; Forged Agent Persona registration."
   },
   ASI04: {
     nist53: [
-      { family: "SA", controls: ["SA-3 System Development Life Cycle", "SA-4 Acquisition Process", "SA-9 External System Services"], rationale: "Agent tool acquisition must include security assessment (SA-3/4). Third-party tool services require SA-9 controls." },
-      { family: "SI", controls: ["SI-7 Software Integrity", "SI-10 Information Input Validation"], rationale: "Cryptographic verification of tool binaries and MCP descriptors (SI-7). Schema validation of tool metadata prevents descriptor poisoning." },
-      { family: "SC", controls: ["SC-7 Boundary Protection", "SC-8 Transmission Confidentiality"], rationale: "Secure tool distribution channels with TLS/mTLS. Network segmentation for tool execution environments." },
-      { family: "RA", controls: ["RA-3 Risk Assessment", "RA-5 Vulnerability Monitoring"], rationale: "Pre-deployment security assessment of tools (RA-3). Continuous vulnerability scanning of tool dependencies (RA-5)." },
+      { family: "SR", controls: ["SR-1 Policy & Procedures", "SR-2 Supply Chain Risk Mgmt Plan", "SR-3 Supply Chain Controls", "SR-4 Provenance", "SR-11 Component Authenticity"], rationale: "Direct mapping: AIBOM governance, provenance verification, signature validation, and kill-switch procedures are SR controls." },
+      { family: "SA", controls: ["SA-9 External System Services", "SA-12 Supply Chain Protection"], rationale: "Third-party MCP server vetting, agent persona validation, and runtime integrity checks." },
+      { family: "CM", controls: ["CM-2 Baseline Configuration", "CM-3 Configuration Change Control"], rationale: "Pinning prompts, tools, and configs by content hash and commit ID with staged rollout." },
+      { family: "SI", controls: ["SI-7 Software & Information Integrity"], rationale: "Runtime signature re-validation and behavioral monitoring for tampered components." },
     ],
     aiRmf: [
-      { func: "GOVERN", cats: ["GV-1 Policies & Processes", "GV-6 Supply Chain & Third-Party"], rationale: "Tool Acquisition & Vetting Policy. Third-party risk management for MCP servers and agent personas." },
-      { func: "MAP", cats: ["MP-2 Categorization", "MP-4 Risks from Third Parties"], rationale: "Categorizing tools by supply-chain risk. Mapping third-party compromise scenarios." },
-      { func: "MEASURE", cats: ["MS-2 Trustworthiness Evaluation"], rationale: "Trustworthiness metrics for tool providers — update frequency, security posture, incident history." },
-      { func: "MANAGE", cats: ["MS-1 Risk Prioritization", "MG-3 Response & Recovery"], rationale: "Supply-chain kill switches for emergency tool revocation. Blast-radius estimates for compromised components." },
+      { func: "GOVERN", cats: ["GV-6 Supply Chain & Third-Party"], rationale: "Agentic Component Governance Policy requiring AIBOM for all third-party tools, MCP servers, and agent personas." },
+      { func: "MAP", cats: ["MP-4 Risks from Third Parties"], rationale: "Mapping supply-chain attack surface including runtime component loading and dynamic tool discovery." },
+      { func: "MEASURE", cats: ["MS-2 Trustworthiness Evaluation"], rationale: "Evaluating provenance, signature validity, and typosquat scanning results." },
+      { func: "MANAGE", cats: ["MG-1 Risk Prioritization", "MG-3 Response & Recovery"], rationale: "Supply-chain kill switches for emergency revocation. Blast-radius estimates for compromised components." },
     ],
     evidence: "Amazon Q supply chain compromise; MCP Tool Descriptor Poisoning; Malicious Postmark MCP server; AgentSmith Prompt-Hub proxy attack."
   },
@@ -254,37 +208,16 @@ const CROSSWALK = {
   },
 };
 
-// ─── Severity Colors & Icons (REC 1) ───────────────────────────────
-const severityColor = {
-  Critical: DESIGN_TOKENS.colors.severityCritical,
-  High: DESIGN_TOKENS.colors.severityHigh,
-  "Medium-High": DESIGN_TOKENS.colors.severityMediumHigh
-};
-
-const severityIcon = {
-  Critical: "⛔",
-  High: "⚠️",
-  "Medium-High": "🔸"
-};
-
-const severityBorderStyle = {
-  Critical: "3px solid rgba(255,255,255,0.6)",
-  High: "2px dashed rgba(255,255,255,0.4)",
-  "Medium-High": "1px dotted rgba(255,255,255,0.3)"
-};
+const severityColor = { Critical: "#DC2626", High: "#D97706", "Medium-High": "#2563EB" };
 
 // ─── Components ──────────────────────────────────────────────────
 function SeverityBadge({ level }) {
   return (
     <span style={{
-      display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 12,
+      display: "inline-block", padding: "2px 10px", borderRadius: 12,
       fontSize: 11, fontWeight: 700, color: "white",
-      backgroundColor: severityColor[level] || "#64748B",
-      borderLeft: severityBorderStyle[level],
-      gap: "4px"
-    }}
-    aria-label={`Severity: ${level}`}>
-      <span style={{ fontSize: "12px" }}>{severityIcon[level]}</span>
+      backgroundColor: severityColor[level] || "#64748B"
+    }}>
       {level}
     </span>
   );
@@ -309,7 +242,7 @@ function MappingCard({ title, items, color }) {
       <div style={{ fontWeight: 700, fontSize: 12, color, marginBottom: 4 }}>{title}</div>
       {items.map((item, i) => (
         <div key={i} style={{ fontSize: 11, lineHeight: 1.5, color: "#334155", marginBottom: 4 }}>
-          <span style={{ fontFamily: DESIGN_TOKENS.fonts.mono, fontWeight: 600, color }}>{item.id || ""}</span>{" "}
+          <span style={{ fontFamily: "monospace", fontWeight: 600, color }}>{item.id || ""}</span>{" "}
           {item.text}
         </div>
       ))}
@@ -326,7 +259,7 @@ function HeatCell({ count, max }) {
     <td style={{
       backgroundColor: bg, color: textColor, textAlign: "center",
       padding: "6px 4px", fontSize: 11, fontWeight: count > 0 ? 700 : 400,
-      border: "1px solid #E2E8F0", minWidth: 36, height: DESIGN_TOKENS.spacing.rowHeight
+      border: "1px solid #E2E8F0", minWidth: 36
     }}>
       {count || ""}
     </td>
@@ -336,25 +269,7 @@ function HeatCell({ count, max }) {
 // ─── Main App ────────────────────────────────────────────────────
 export default function App() {
   const [selectedASI, setSelectedASI] = useState(null);
-  const [view, setView] = useState("matrix"); // matrix | detail | aiRmf
-  const [isMobile, setIsMobile] = useState(window.innerWidth < DESIGN_TOKENS.breakpoints.mobile);
-  const [isTablet, setIsTablet] = useState(window.innerWidth >= DESIGN_TOKENS.breakpoints.mobile && window.innerWidth < DESIGN_TOKENS.breakpoints.tablet);
-  const [showMethodology, setShowMethodology] = useState(false);
-
-  // REC 6: Responsive design with resize listener
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < DESIGN_TOKENS.breakpoints.mobile);
-      setIsTablet(width >= DESIGN_TOKENS.breakpoints.mobile && width < DESIGN_TOKENS.breakpoints.tablet);
-    };
-    const debounce = setTimeout(handleResize, 150);
-    window.addEventListener('resize', handleResize);
-    return () => {
-      clearTimeout(debounce);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
+  const [view, setView] = useState("matrix"); // matrix | detail | sankey
 
   // Compute heatmap data
   const heatmapData = useMemo(() => {
@@ -389,7 +304,7 @@ export default function App() {
     return { data, maxVal };
   }, []);
 
-  // Stats (from earlier changes)
+  // Stats
   const totalControls = useMemo(() => {
     let total = 0;
     Object.values(CROSSWALK).forEach(cw => {
@@ -424,72 +339,56 @@ export default function App() {
   const selectedMeta = selectedASI ? OWASP_ASI.find(a => a.id === selectedASI) : null;
 
   return (
-    <div style={{ fontFamily: DESIGN_TOKENS.fonts.sans, maxWidth: 1100, margin: "0 auto", padding: 20, color: "#1E293B" }}>
+    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxWidth: 1100, margin: "0 auto", padding: 20, color: "#1E293B" }}>
       {/* Header */}
       <div style={{ backgroundColor: "#2563EB", padding: "24px 28px", borderRadius: "8px 8px 0 0", color: "white" }}>
         <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.8, marginBottom: 4 }}>COMPLIANCE MIDDLEWARE</div>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>OWASP Agentic AI ↔ NIST Crosswalk</h1>
         <div style={{ fontSize: 13, marginTop: 6, opacity: 0.9 }}>
-          Bridging ASI 2026 → NIST 800‑53 Rev 5 → NIST AI‑RMF 100‑1
+          Bridging ASI 2026 → NIST 800-53 Rev 5 → NIST AI-RMF 100-1
         </div>
         <div style={{ fontSize: 11, marginTop: 8, opacity: 0.75, lineHeight: 1.5 }}>
           Severity ratings (Critical, High, Medium-High) are editorially assigned based on OWASP ordinal risk ranking and are not official OWASP severity classifications.
         </div>
       </div>
 
-      {/* REC 7: Expandable Methodology Panel */}
-      <div style={{ backgroundColor: "#F8FAFC", padding: "12px 20px", borderLeft: "1px solid #E2E8F0", borderRight: "1px solid #E2E8F0" }}>
-        <details style={{ cursor: "pointer" }} open={showMethodology} onChange={(e) => setShowMethodology(e.target.open)}>
-          <summary style={{ fontSize: "13px", color: "#94A3B8", marginBottom: "12px", fontWeight: 500, userSelect: "none" }}>
-            About this mapping methodology
-          </summary>
-          <div style={{ fontSize: "12px", color: "#64748B", lineHeight: 1.6, marginBottom: "8px" }}>
-            Severity ratings (Critical, High, Medium-High) are editorially assigned based on OWASP ordinal risk ranking and are not official OWASP severity classifications. Control mappings represent editorial analysis of which NIST 800-53 Rev 5 controls and AI-RMF 100-1 categories address the security concerns raised by each OWASP ASI risk. This crosswalk covers 16 of 20 NIST 800-53 Rev 5 control families. Families AT (Awareness & Training), MA (Maintenance), PS (Personnel Security), and PT (PII Transparency) were excluded as lower relevance to agentic AI threat vectors.
-          </div>
-        </details>
-      </div>
-
       {/* Stat Cards */}
-      <div style={{ display: isMobile ? "flex" : "grid", flexDirection: isMobile ? "column" : "row", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: DESIGN_TOKENS.spacing.cardGap, padding: "16px 20px", backgroundColor: "#F8FAFC", borderLeft: "1px solid #E2E8F0", borderRight: "1px solid #E2E8F0" }}>
-        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #DBEAFE", backgroundColor: "white", width: isMobile ? "100%" : "auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, padding: "16px 20px", backgroundColor: "#F8FAFC", borderLeft: "1px solid #E2E8F0", borderRight: "1px solid #E2E8F0" }}>
+        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #DBEAFE", backgroundColor: "white" }}>
           <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>ASI Risks</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#2563EB", fontFamily: DESIGN_TOKENS.fonts.mono }}>{OWASP_ASI.length}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#2563EB", fontFamily: "monospace" }}>{OWASP_ASI.length}</div>
         </div>
-        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #DBEAFE", backgroundColor: "white", width: isMobile ? "100%" : "auto" }}>
-          <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Unique 800‑53 Controls</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#2563EB", fontFamily: DESIGN_TOKENS.fonts.mono }}>{uniqueControls}</div>
+        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #DBEAFE", backgroundColor: "white" }}>
+          <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Unique 800-53 Controls</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#2563EB", fontFamily: "monospace" }}>{uniqueControls}</div>
           <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{totalControls} total control mappings across {OWASP_ASI.length} ASI risks</div>
         </div>
-        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #D1FAE5", backgroundColor: "white", width: isMobile ? "100%" : "auto" }}>
-          <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Unique AI‑RMF Categories</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#059669", fontFamily: DESIGN_TOKENS.fonts.mono }}>{uniqueCategories}</div>
+        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #D1FAE5", backgroundColor: "white" }}>
+          <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Unique AI-RMF Categories</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#059669", fontFamily: "monospace" }}>{uniqueCategories}</div>
           <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{totalCategories} total category mappings across {OWASP_ASI.length} ASI risks</div>
         </div>
-        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #FECACA", backgroundColor: "white", width: isMobile ? "100%" : "auto" }}>
+        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #FECACA", backgroundColor: "white" }}>
           <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Critical Risks</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#DC2626", fontFamily: DESIGN_TOKENS.fonts.mono }}>{OWASP_ASI.filter(a => a.severity === "Critical").length}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#DC2626", fontFamily: "monospace" }}>{OWASP_ASI.filter(a => a.severity === "Critical").length}</div>
         </div>
       </div>
 
-      {/* Nav (REC 4: Enhanced tab styling) */}
+      {/* Nav */}
       <div style={{ display: "flex", gap: 0, borderBottom: "2px solid #E2E8F0" }}>
         {[
-          { key: "matrix", label: "800-53 Heatmap", icon: "📊" },
-          { key: "aiRmf", label: "AI-RMF Heatmap", icon: "🎯" },
-          { key: "detail", label: "Evidence Explorer", icon: "🔍" },
+          { key: "matrix", label: "800-53 Heatmap" },
+          { key: "aiRmf", label: "AI-RMF Heatmap" },
+          { key: "detail", label: "Evidence Explorer" },
         ].map(tab => (
           <button key={tab.key} onClick={() => { setView(tab.key); setSelectedASI(null); }}
             style={{
-              padding: DESIGN_TOKENS.spacing.tabPadding, border: "none", cursor: "pointer",
+              padding: "12px 24px", border: "none", cursor: "pointer",
               fontWeight: view === tab.key ? 700 : 400, fontSize: 13,
-              color: view === tab.key ? DESIGN_TOKENS.colors.tabActive : DESIGN_TOKENS.colors.tabInactive,
-              backgroundColor: view === tab.key ? `rgba(59, 130, 246, 0.08)` : "white",
-              borderBottom: view === tab.key ? `4px solid ${DESIGN_TOKENS.colors.tabUnderline}` : "4px solid transparent",
-              transition: `border-color ${DESIGN_TOKENS.transitions.medium}, color ${DESIGN_TOKENS.transitions.medium}`,
-              display: "flex", alignItems: "center", gap: "6px"
-            }}
-            aria-current={view === tab.key ? "page" : undefined}>
-            <span style={{ opacity: view === tab.key ? 1 : 0.5 }}>{tab.icon}</span>
+              color: view === tab.key ? "#2563EB" : "#64748B",
+              backgroundColor: view === tab.key ? "#EFF6FF" : "white",
+              borderBottom: view === tab.key ? "3px solid #2563EB" : "3px solid transparent",
+            }}>
             {tab.label}
           </button>
         ))}
@@ -502,33 +401,18 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: 16, color: "#2563EB", marginBottom: 4 }}>OWASP ASI → NIST 800-53 Rev 5 Control Density</h2>
             <p style={{ fontSize: 12, color: "#64748B", marginBottom: 8 }}>
-              Each cell shows how many specific 800-53 controls map to that ASI risk. Darker = more controls engaged. Click any row for full detail. Rows highlight on hover.
+              Each cell shows how many specific 800-53 controls map to that ASI risk. Darker = more controls engaged. Click any ASI row for full detail.
             </p>
-            <p style={{ fontSize: 12, color: DESIGN_TOKENS.colors.textSecondary, fontStyle: "normal", marginBottom: 16, opacity: 0.8, lineHeight: 1.5 }}>
-              Scope: 16 of 20 NIST 800-53 Rev 5 control families are represented. Families AT (Awareness & Training), MA (Maintenance), PS (Personnel Security), and PT (PII Transparency) were excluded as lower relevance to agentic AI threat vectors.
+            <p style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic", marginBottom: 16 }}>
+              Scope: 16 of 20 NIST 800-53 Rev 5 control families are represented. Families AT (Awareness &amp; Training), MA (Maintenance), PS (Personnel Security), and PT (PII Transparency) were excluded as lower relevance to agentic AI threat vectors.
             </p>
-
-            {/* REC 2: Expandable Control Family Legend */}
-            <details style={{ marginBottom: "16px" }}>
-              <summary style={{ cursor: "pointer", fontSize: "13px", color: "#94A3B8", marginBottom: "12px", fontWeight: 500, userSelect: "none" }}>
-                Control Family Reference (click to expand)
-              </summary>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }} role="region" aria-label="NIST 800-53 Control Family Reference">
-                {NIST_800_53.map(fam => (
-                  <div key={fam.id} style={{ fontSize: "12px", padding: "4px 8px", borderLeft: `3px solid ${fam.color}`, marginBottom: "4px", color: "#CBD5E1", backgroundColor: "rgba(15, 23, 42, 0.5)" }}>
-                    <span style={{ fontWeight: "bold", color: fam.color, fontFamily: DESIGN_TOKENS.fonts.mono }}>{fam.id}</span> — {fam.name}
-                  </div>
-                ))}
-              </div>
-            </details>
-
-            <div style={{ overflowX: isTablet ? "auto" : "visible", WebkitOverflowScrolling: "touch", position: "relative" }}>
+            <div style={{ overflowX: "auto" }}>
               <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "left", padding: 6, backgroundColor: "#0F172A", color: "white", minWidth: 160, borderRadius: "4px 0 0 0", fontFamily: DESIGN_TOKENS.fonts.mono }}>OWASP ASI</th>
+                    <th style={{ textAlign: "left", padding: 6, backgroundColor: "#0F172A", color: "white", minWidth: 160, borderRadius: "4px 0 0 0" }}>OWASP ASI</th>
                     {NIST_800_53.map(f => (
-                      <th key={f.id} style={{ padding: "6px 2px", backgroundColor: "#0F172A", color: "white", fontSize: 9, writingMode: "vertical-rl", textOrientation: "mixed", height: 80, fontFamily: DESIGN_TOKENS.fonts.mono, cursor: "help" }} title={f.name}>
+                      <th key={f.id} style={{ padding: "6px 2px", backgroundColor: "#0F172A", color: "white", fontSize: 9, writingMode: "vertical-rl", textOrientation: "mixed", height: 80 }}>
                         {f.id}
                       </th>
                     ))}
@@ -537,16 +421,13 @@ export default function App() {
                 <tbody>
                   {OWASP_ASI.map(asi => (
                     <tr key={asi.id} onClick={() => { setSelectedASI(asi.id); setView("detail"); }}
-                      style={{ cursor: "pointer", transition: `background-color ${DESIGN_TOKENS.transitions.fast}`, height: DESIGN_TOKENS.spacing.rowHeight }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = DESIGN_TOKENS.colors.bgHoverRow800}
+                      style={{ cursor: "pointer" }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = "#F0F9FF"}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
-                      <td style={{ padding: 6, fontWeight: 600, fontSize: 11, borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span>
-                          <span style={{ color: "#2563EB", fontFamily: DESIGN_TOKENS.fonts.mono }}>{asi.id}</span>{" "}
-                          <span style={{ color: "#334155" }}>{asi.name}</span>{" "}
-                          <SeverityBadge level={asi.severity} />
-                        </span>
-                        <span style={{ opacity: 0, transition: `opacity ${DESIGN_TOKENS.transitions.fast}`, marginLeft: "auto", fontSize: "18px", color: "#64748B", paddingLeft: "8px" }} className="chevron">›</span>
+                      <td style={{ padding: 6, fontWeight: 600, fontSize: 11, borderBottom: "1px solid #E2E8F0" }}>
+                        <span style={{ color: "#2563EB", fontFamily: "monospace" }}>{asi.id}</span>{" "}
+                        <span style={{ color: "#334155" }}>{asi.name}</span>{" "}
+                        <SeverityBadge level={asi.severity} />
                       </td>
                       {NIST_800_53.map(f => (
                         <HeatCell key={f.id} count={heatmapData.data[asi.id][f.id]} max={heatmapData.maxVal} />
@@ -555,13 +436,8 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
-              {isTablet && (
-                <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "40px", background: "linear-gradient(to right, transparent, rgba(10, 14, 26, 0.8))", pointerEvents: "none" }} />
-              )}
             </div>
-
-            {/* REC 7: Sticky Density Legend */}
-            <div style={{ marginTop: 16, display: "flex", gap: 8, alignItems: "center", fontSize: 11, color: "#64748B", position: "sticky", bottom: 0, zIndex: 2, paddingTop: "8px", paddingBottom: "8px", backgroundColor: "white" }}>
+            <div style={{ marginTop: 16, display: "flex", gap: 8, alignItems: "center", fontSize: 11, color: "#64748B" }}>
               <span>Density:</span>
               {[{ bg: "#F8FAFC", label: "0" }, { bg: "#93C5FD", label: "1-2" }, { bg: "#3B82F6", label: "3" }, { bg: "#1E40AF", label: "4+" }].map(l => (
                 <span key={l.label} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -578,15 +454,15 @@ export default function App() {
           <div>
             <h2 style={{ fontSize: 16, color: "#059669", marginBottom: 4 }}>OWASP ASI → NIST AI-RMF Function Coverage</h2>
             <p style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>
-              Each cell shows how many AI-RMF subcategories map to that ASI risk across GOVERN, MAP, MEASURE, MANAGE. Click any row for full detail.
+              Each cell shows how many AI-RMF subcategories map to that ASI risk across GOVERN, MAP, MEASURE, MANAGE.
             </p>
-            <div style={{ overflowX: isTablet ? "auto" : "visible", WebkitOverflowScrolling: "touch", position: "relative" }}>
+            <div style={{ overflowX: "auto" }}>
               <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "left", padding: 8, backgroundColor: "#0F172A", color: "white", minWidth: 200, fontFamily: DESIGN_TOKENS.fonts.mono }}>OWASP ASI</th>
+                    <th style={{ textAlign: "left", padding: 8, backgroundColor: "#0F172A", color: "white", minWidth: 200 }}>OWASP ASI</th>
                     {AI_RMF.map(f => (
-                      <th key={f.id} style={{ padding: 8, backgroundColor: f.color, color: "white", textAlign: "center", minWidth: 100, fontFamily: DESIGN_TOKENS.fonts.mono }}>
+                      <th key={f.id} style={{ padding: 8, backgroundColor: f.color, color: "white", textAlign: "center", minWidth: 100 }}>
                         {f.name}
                       </th>
                     ))}
@@ -595,15 +471,12 @@ export default function App() {
                 <tbody>
                   {OWASP_ASI.map(asi => (
                     <tr key={asi.id} onClick={() => { setSelectedASI(asi.id); setView("detail"); }}
-                      style={{ cursor: "pointer", transition: `background-color ${DESIGN_TOKENS.transitions.fast}`, height: DESIGN_TOKENS.spacing.rowHeight }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = DESIGN_TOKENS.colors.bgHoverRowRMF}
+                      style={{ cursor: "pointer" }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = "#F0FDF4"}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = "transparent"}>
-                      <td style={{ padding: 8, fontWeight: 600, borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <span>
-                          <span style={{ color: "#059669", fontFamily: DESIGN_TOKENS.fonts.mono }}>{asi.id}</span>{" "}
-                          {asi.name} <SeverityBadge level={asi.severity} />
-                        </span>
-                        <span style={{ opacity: 0, transition: `opacity ${DESIGN_TOKENS.transitions.fast}`, marginLeft: "auto", fontSize: "18px", color: "#64748B", paddingLeft: "8px" }} className="chevron">›</span>
+                      <td style={{ padding: 8, fontWeight: 600, borderBottom: "1px solid #E2E8F0" }}>
+                        <span style={{ color: "#059669", fontFamily: "monospace" }}>{asi.id}</span>{" "}
+                        {asi.name} <SeverityBadge level={asi.severity} />
                       </td>
                       {AI_RMF.map(f => (
                         <HeatCell key={f.id} count={aiRmfHeatmap.data[asi.id][f.id]} max={aiRmfHeatmap.maxVal} />
@@ -612,15 +485,12 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
-              {isTablet && (
-                <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "40px", background: "linear-gradient(to right, transparent, rgba(10, 14, 26, 0.8))", pointerEvents: "none" }} />
-              )}
             </div>
             {/* AI-RMF subcategory legend */}
-            <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr 1fr", gap: 12 }}>
+            <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
               {AI_RMF.map(f => (
                 <div key={f.id} style={{ padding: 12, backgroundColor: `${f.color}08`, border: `1px solid ${f.color}22`, borderRadius: 6 }}>
-                  <div style={{ fontWeight: 700, color: f.color, fontSize: 13, marginBottom: 6, fontFamily: DESIGN_TOKENS.fonts.mono }}>{f.name}</div>
+                  <div style={{ fontWeight: 700, color: f.color, fontSize: 13, marginBottom: 6 }}>{f.name}</div>
                   {f.cats.map(c => (
                     <div key={c} style={{ fontSize: 10, color: "#334155", lineHeight: 1.6 }}>{c}</div>
                   ))}
@@ -646,8 +516,7 @@ export default function App() {
                     border: selectedASI === asi.id ? "2px solid #2563EB" : "1px solid #CBD5E1",
                     backgroundColor: selectedASI === asi.id ? "#EFF6FF" : "white",
                     color: selectedASI === asi.id ? "#2563EB" : "#64748B",
-                    cursor: "pointer",
-                    fontFamily: DESIGN_TOKENS.fonts.mono
+                    cursor: "pointer"
                   }}>
                   {asi.id}
                 </button>
@@ -660,7 +529,7 @@ export default function App() {
                 <div style={{ backgroundColor: "#0F172A", padding: 20, borderRadius: 8, color: "white", marginBottom: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
-                      <div style={{ fontFamily: DESIGN_TOKENS.fonts.mono, fontSize: 14, opacity: 0.7 }}>{selectedMeta.id}</div>
+                      <div style={{ fontFamily: "monospace", fontSize: 14, opacity: 0.7 }}>{selectedMeta.id}</div>
                       <h3 style={{ margin: "4px 0", fontSize: 20 }}>{selectedMeta.name}</h3>
                       <p style={{ fontSize: 12, opacity: 0.8, maxWidth: 600, lineHeight: 1.6 }}>{selectedMeta.desc}</p>
                     </div>
@@ -668,8 +537,8 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Two-column layout (stacked on mobile) */}
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
+                {/* Two-column layout */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
                   {/* 800-53 column */}
                   <div>
                     <h3 style={{ fontSize: 14, color: "#2563EB", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
@@ -741,13 +610,6 @@ export default function App() {
           <a href="https://github.com/haremantra/OWASP-AGENTIC-to-NIST-800-53v5-to-AI-RMF" style={{ color: "#2563EB", textDecoration: "underline" }}>Source Code</a>
         </div>
       </div>
-
-      {/* Add inline styles for chevron hover effect */}
-      <style>{`
-        tr:hover .chevron {
-          opacity: 0.8 !important;
-        }
-      `}</style>
     </div>
   );
 }
