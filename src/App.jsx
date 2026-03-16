@@ -180,7 +180,7 @@ const CROSSWALK = {
     nist53: [
       { family: "AC", controls: ["AC-3 Access Enforcement"], rationale: "Mandatory friction for high-risk actions — confirmation prompts, cooling-off periods, risk badges." },
       { family: "AU", controls: ["AU-2 Event Logging", "AU-6 Audit Record Review"], rationale: "Immutable logs of user queries, agent recommendations, and approval decisions for forensic review." },
-      { family: "PM", controls: ["PM-13 Security & Privacy Workforce", "PM-14 Testing Training & Monitoring"], rationale: "Annual training for personnel on automation bias, anthropomorphism risks, and AI social engineering." },
+      { family: "PM", controls: ["PM-13 Security & Privacy Workforce", "PM-14 Testing Training & Monitoring"], rationale: "Annual training for personnel on automation bias, anthropomorphism risks, and AI social engineering. Note: AT-2 (Literacy Training) and AT-3 (Role-Based Training) from the AT family are also directly applicable but are not included in this crosswalk's scope." },
       { family: "PL", controls: ["PL-4 Rules of Behavior"], rationale: "Human-Agent Interaction Governance Standard defining rules for how humans must verify agent recommendations." },
     ],
     aiRmf: [
@@ -304,6 +304,37 @@ export default function App() {
     return { data, maxVal };
   }, []);
 
+  // Stats
+  const totalControls = useMemo(() => {
+    let total = 0;
+    Object.values(CROSSWALK).forEach(cw => {
+      cw.nist53.forEach(m => (total += m.controls.length));
+    });
+    return total;
+  }, []);
+
+  const totalCategories = useMemo(() => {
+    let total = 0;
+    Object.values(CROSSWALK).forEach(cw => {
+      cw.aiRmf.forEach(m => (total += m.cats.length));
+    });
+    return total;
+  }, []);
+
+  const uniqueControls = useMemo(() => {
+    const ids = new Set();
+    Object.values(CROSSWALK).forEach(cw => {
+      cw.nist53.forEach(m => m.controls.forEach(c => ids.add(c)));
+    });
+    return ids.size;
+  }, []);
+
+  const uniqueCategories = useMemo(() => {
+    const ids = new Set();
+    AI_RMF.forEach(func => func.cats.forEach(c => ids.add(c)));
+    return ids.size;
+  }, []);
+
   const selected = selectedASI ? CROSSWALK[selectedASI] : null;
   const selectedMeta = selectedASI ? OWASP_ASI.find(a => a.id === selectedASI) : null;
 
@@ -315,6 +346,31 @@ export default function App() {
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>OWASP Agentic AI ↔ NIST Crosswalk</h1>
         <div style={{ fontSize: 13, marginTop: 6, opacity: 0.9 }}>
           Bridging ASI 2026 → NIST 800-53 Rev 5 → NIST AI-RMF 100-1
+        </div>
+        <div style={{ fontSize: 11, marginTop: 8, opacity: 0.75, lineHeight: 1.5 }}>
+          Severity ratings (Critical, High, Medium-High) are editorially assigned based on OWASP ordinal risk ranking and are not official OWASP severity classifications.
+        </div>
+      </div>
+
+      {/* Stat Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, padding: "16px 20px", backgroundColor: "#F8FAFC", borderLeft: "1px solid #E2E8F0", borderRight: "1px solid #E2E8F0" }}>
+        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #DBEAFE", backgroundColor: "white" }}>
+          <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>ASI Risks</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#2563EB", fontFamily: "monospace" }}>{OWASP_ASI.length}</div>
+        </div>
+        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #DBEAFE", backgroundColor: "white" }}>
+          <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Unique 800-53 Controls</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#2563EB", fontFamily: "monospace" }}>{uniqueControls}</div>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{totalControls} total control mappings across {OWASP_ASI.length} ASI risks</div>
+        </div>
+        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #D1FAE5", backgroundColor: "white" }}>
+          <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Unique AI-RMF Categories</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#059669", fontFamily: "monospace" }}>{uniqueCategories}</div>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{totalCategories} total category mappings across {OWASP_ASI.length} ASI risks</div>
+        </div>
+        <div style={{ padding: 12, borderRadius: 6, border: "1px solid #FECACA", backgroundColor: "white" }}>
+          <div style={{ fontSize: 10, color: "#64748B", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Critical Risks</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#DC2626", fontFamily: "monospace" }}>{OWASP_ASI.filter(a => a.severity === "Critical").length}</div>
         </div>
       </div>
 
@@ -344,8 +400,11 @@ export default function App() {
         {view === "matrix" && (
           <div>
             <h2 style={{ fontSize: 16, color: "#2563EB", marginBottom: 4 }}>OWASP ASI → NIST 800-53 Rev 5 Control Density</h2>
-            <p style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>
+            <p style={{ fontSize: 12, color: "#64748B", marginBottom: 8 }}>
               Each cell shows how many specific 800-53 controls map to that ASI risk. Darker = more controls engaged. Click any ASI row for full detail.
+            </p>
+            <p style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic", marginBottom: 16 }}>
+              Scope: 16 of 20 NIST 800-53 Rev 5 control families are represented. Families AT (Awareness &amp; Training), MA (Maintenance), PS (Personnel Security), and PT (PII Transparency) were excluded as lower relevance to agentic AI threat vectors.
             </p>
             <div style={{ overflowX: "auto" }}>
               <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11 }}>
@@ -542,7 +601,14 @@ export default function App() {
 
       {/* Footer */}
       <div style={{ marginTop: 12, padding: "12px 20px", backgroundColor: "#F8FAFC", borderRadius: 8, fontSize: 10, color: "#94A3B8", textAlign: "center" }}>
-        Sources: OWASP Top 10 for Agentic Applications v2026 (CC BY-SA 4.0) | NIST SP 800-53 Rev 5 | NIST AI 100-1 (AI RMF 1.0) | NIST AI 600-1 GenAI Profile
+        <div>Sources: OWASP Top 10 for Agentic Applications v2026 (CC BY-SA 4.0) | NIST SP 800-53 Rev 5 | NIST AI 100-1 (AI RMF 1.0) | NIST AI 600-1 GenAI Profile</div>
+        <div style={{ marginTop: 6 }}>
+          Licensed under <a href="https://github.com/haremantra/OWASP-AGENTIC-to-NIST-800-53v5-to-AI-RMF/blob/main/LICENSE" style={{ color: "#2563EB", textDecoration: "underline" }}>AGPL-3.0</a>
+          {" | "}
+          <a href="https://github.com/haremantra/OWASP-AGENTIC-to-NIST-800-53v5-to-AI-RMF/blob/main/TERMS_OF_SERVICE.md" style={{ color: "#2563EB", textDecoration: "underline" }}>Terms of Service</a>
+          {" | "}
+          <a href="https://github.com/haremantra/OWASP-AGENTIC-to-NIST-800-53v5-to-AI-RMF" style={{ color: "#2563EB", textDecoration: "underline" }}>Source Code</a>
+        </div>
       </div>
     </div>
   );
