@@ -6,6 +6,24 @@ This project follows a philosophy of **transparent provenance**: every editorial
 
 ---
 
+## [0.5.1] — 2026-03-26
+
+### Tier 1 Immediate Fixes — SEO, Accessibility, and Visual Polish
+
+Five surgical fixes applied without altering existing functionality, data, or layout.
+
+**Fix 1: Title Tag.** Browser tab title already matched the OG meta tags ("OWASP Agentic AI ↔ NIST Crosswalk"). Confirmed correct.
+
+**Fix 2: OG Image and Meta Tags.** Added `og:url`, `og:image`, and `twitter:image` meta tags to `index.html`. Generated a 1200×630 `og-card.png` using Pillow with the app's dark navy background (#0a0f1a), shield icon, cyan "COMPLIANCE MIDDLEWARE" label, white title, slate-400 subtitle with key stats, cyan accent line, and "haremantra" attribution.
+
+**Fix 3: Column Header Tooltips.** Wrapped all 16 NIST 800-53 column headers (AC through SR) in Radix `<Tooltip>` components showing the full family name (e.g., "AC — Access Control"). Added `title` attribute fallback for non-hover devices. Wrapped the heatmap table in `<TooltipProvider delayDuration={200}>`.
+
+**Fix 4: Row Hover States.** Changed 800-53 heatmap row hover from invisible `#F0F9FF` to visible `rgba(59,130,246,0.08)`. Changed AI-RMF heatmap row hover from invisible `#F0FDF4` to visible `rgba(34,197,94,0.08)`. Both heatmaps already had `group` class with `ChevronRight` opacity transition — confirmed working.
+
+**Fix 5: Critical Risks Context.** Added supporting text "ASI01, ASI03, ASI08, ASI10 rated Critical severity" to the Critical Risks stat card, matching the subtitle pattern used by the other three stat cards.
+
+---
+
 ## [0.5.0] — 2026-03-26
 
 ### UX Remediation — 11-Bug Fix Across 3 Phases
