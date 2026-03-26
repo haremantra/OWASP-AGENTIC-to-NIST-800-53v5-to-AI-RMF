@@ -377,14 +377,13 @@ export default function Home() {
                             fontFamily: "var(--font-mono)",
                             letterSpacing: "0.5px",
                           }}
-                          title={`${f.id} \u2014 ${f.name}`}
                         >
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="cursor-help">{f.id}</span>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-xs font-mono">
-                              {f.id} \u2014 {f.name}
+                              {`${f.id} — ${f.name}`}
                             </TooltipContent>
                           </Tooltip>
                         </th>
