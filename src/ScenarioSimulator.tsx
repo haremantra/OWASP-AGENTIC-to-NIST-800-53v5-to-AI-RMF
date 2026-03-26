@@ -1,16 +1,21 @@
 /**
- * Scenario Simulator Tab — Phase 1 Scrambler UI (5-Step UX)
- * Design: Extends the "Command Center" dark tactical aesthetic
+ * Scenario Simulator Tab — v0.5.0 Remediated
  * 
- * 5-Step User Journey:
- * 1. First click on card → Info bubble with explanation + ✕ close
- * 2. Second click (or click after closing) → Card is selected
- * 3. Scenario Preview → Plain-language explanation of what will be tested
- * 4. Generate Scenario → Results narrative with full NIST names + consequences
- * 5. Full Governance Contrast → Before/after showing what controls fix
+ * Bug fixes applied:
+ * Bug 1: Shared openTooltipId state (no stacking bubbles)
+ * Bug 2: stopPropagation on ⓘ icon (no dual-action click)
+ * Bug 3: Escape / click-outside / ✕ dismiss for info bubbles
+ * Bug 4: Text tokens (--text-primary, --text-secondary, --text-caption)
+ * Bug 5: Chart accessibility (12px labels, SVG role/title/desc, grid lines)
+ * Bug 6: Single-click select model (ⓘ for info, card body for select)
+ * Bug 7: Colorblind-safe heatmap icons (square/✓, diamond/✕, line)
+ * Bug 8: 32×32px heatmap cells + ARIA labels
+ * Bug 9: Scroll-to-results + pulse + toast on generation
+ * Bug 10: Mode context badge on heatmap header
+ * Bug 11: Responsive heatmap with sticky row headers
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   OWASP_ASI,
@@ -70,14 +75,64 @@ const ARCHETYPE_LABELS: Record<string, string> = {
   Swarm: "Swarm Architecture",
 };
 
-// ─── Info Bubble Component ──────────────────────────────────────────
+// ─── Toast Utility (Bug 9) ─────────────────────────────────────────
+
+function showToast(message: string, duration = 4000) {
+  const existing = document.querySelector('.toast-notification');
+  if (existing) existing.remove();
+  
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.textContent = message;
+  toast.setAttribute('role', 'status');
+  toast.setAttribute('aria-live', 'polite');
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('toast-exit');
+    setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 300);
+  }, duration);
+}
+
+// ─── Colorblind-Safe Heatmap Icons (Bug 7) ─────────────────────────
+
+function ActiveIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2" y="2" width="12" height="12" rx="2" fill="#10B981" opacity="0.3" />
+      <path d="M4.5 8.5L7 11L11.5 5.5" stroke="#6EE7B7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+function BrokenIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="8" y="1.5" width="9" height="9" rx="1" transform="rotate(45 8 1.5)" fill="#EF4444" opacity="0.3" />
+      <path d="M5.5 5.5L10.5 10.5M10.5 5.5L5.5 10.5" stroke="#FCA5A5" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IrrelevantIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <line x1="4" y1="8" x2="12" y2="8" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ─── Info Bubble Component (Bugs 1, 3, 4) ──────────────────────────
 
 function InfoBubble({
   cardKey,
   onClose,
+  bubbleRef,
 }: {
   cardKey: string;
   onClose: () => void;
+  bubbleRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const info = CARD_INFO[cardKey];
   if (!info) return null;
@@ -88,20 +143,23 @@ function InfoBubble({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.95 }}
       transition={{ duration: 0.15 }}
-      className="absolute z-50 left-0 right-0 top-full mt-2"
+      className="absolute z-50 left-0 top-full mt-2"
+      ref={bubbleRef}
     >
       <div
-        className="rounded-lg p-4 border shadow-xl"
+        className="rounded-lg p-3 border shadow-xl"
         style={{
-          backgroundColor: "#111827",
-          borderColor: "#334155",
-          maxWidth: 380,
+          backgroundColor: "var(--bg-surface-raised, #1E293B)",
+          borderColor: "rgba(255,255,255,0.1)",
+          width: 280,
+          fontSize: 14,
+          lineHeight: 1.5,
         }}
       >
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
             <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="text-xs font-bold text-slate-200">{info.title}</span>
+            <span className="text-xs font-bold" style={{ color: "var(--text-primary, #E2E8F0)" }}>{info.title}</span>
           </div>
           <button
             onClick={(e) => {
@@ -109,21 +167,22 @@ function InfoBubble({
               onClose();
             }}
             className="p-0.5 rounded hover:bg-slate-700 transition-colors"
+            aria-label="Close tooltip"
           >
-            <X className="w-3.5 h-3.5 text-slate-400" />
+            <X className="w-3.5 h-3.5" style={{ color: "var(--text-secondary, #94A3B8)" }} />
           </button>
         </div>
-        <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
+        <p className="text-[13px] leading-relaxed mb-3" style={{ color: "var(--text-secondary, #94A3B8)" }}>
           {info.description}
         </p>
         {info.examples.length > 0 && (
           <div className="mb-2">
-            <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">
+            <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: "var(--text-caption, #64748B)" }}>
               Real-World Examples
             </div>
             <ul className="space-y-1">
               {info.examples.map((ex, i) => (
-                <li key={i} className="text-[10px] text-slate-500 flex items-start gap-1.5">
+                <li key={i} className="text-[12px] flex items-start gap-1.5" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                   <span className="text-amber-500 mt-0.5 shrink-0">&#x2022;</span>
                   {ex}
                 </li>
@@ -136,72 +195,87 @@ function InfoBubble({
             {info.relatedASI.map((asi) => (
               <span
                 key={asi}
-                className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20"
               >
                 {asi}
               </span>
             ))}
           </div>
         )}
-        <div className="text-[9px] text-slate-600 mt-3 italic">
-          Click the card again to select it.
-        </div>
       </div>
     </motion.div>
   );
 }
 
-// ─── Selectable Card with Info Bubble ───────────────────────────────
+// ─── Selectable Card with Info Icon (Bugs 1, 2, 6) ────────────────
 
 function SelectableCard({
   cardKey,
   isSelected,
   accentColor,
   onSelect,
+  openTooltipId,
+  setOpenTooltipId,
+  bubbleRef,
 }: {
   cardKey: string;
   isSelected: boolean;
   accentColor: string;
   onSelect: (key: string) => void;
+  openTooltipId: string | null;
+  setOpenTooltipId: (id: string | null) => void;
+  bubbleRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const [showInfo, setShowInfo] = useState(false);
-  const [hasSeenInfo, setHasSeenInfo] = useState(false);
+  const isInfoOpen = openTooltipId === cardKey;
 
-  const handleClick = () => {
-    if (!hasSeenInfo && !isSelected) {
-      // First click: show info bubble
-      setShowInfo(true);
-      setHasSeenInfo(true);
-    } else {
-      // Second click or already seen: select
-      setShowInfo(false);
-      onSelect(cardKey);
-    }
+  // Bug 6: Card body click = select only (no info bubble)
+  const handleCardClick = () => {
+    onSelect(cardKey);
   };
 
-  const handleCloseInfo = () => {
-    setShowInfo(false);
+  // Bug 2: ⓘ click = info only (stopPropagation prevents card selection)
+  const handleInfoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isInfoOpen) {
+      setOpenTooltipId(null);
+    } else {
+      setOpenTooltipId(cardKey);
+    }
   };
 
   return (
     <div className="relative">
       <button
-        onClick={handleClick}
-        className="px-2.5 py-1.5 rounded text-[10px] font-semibold transition-all flex items-center gap-1"
+        onClick={handleCardClick}
+        className="px-2.5 py-1.5 rounded text-[11px] font-semibold transition-all flex items-center gap-1"
         style={{
           backgroundColor: isSelected ? `${accentColor}20` : "transparent",
-          color: isSelected ? accentColor : "#64748B",
-          border: `1px solid ${isSelected ? `${accentColor}40` : "#334155"}`,
+          color: isSelected ? accentColor : "var(--text-secondary, #94A3B8)",
+          border: `1.5px solid ${isSelected ? accentColor : "#334155"}`,
         }}
       >
-        {!hasSeenInfo && !isSelected && (
-          <Info className="w-3 h-3 opacity-50" />
-        )}
         {cardKey}
+        {/* Bug 6: ⓘ icon always visible, separate click target */}
+        <span
+          onClick={handleInfoClick}
+          className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity cursor-help"
+          role="button"
+          aria-label={`More info about ${cardKey}`}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              handleInfoClick(e as unknown as React.MouseEvent);
+            }
+          }}
+        >
+          <Info className="w-3 h-3" />
+        </span>
       </button>
       <AnimatePresence>
-        {showInfo && (
-          <InfoBubble cardKey={cardKey} onClose={handleCloseInfo} />
+        {isInfoOpen && (
+          <InfoBubble cardKey={cardKey} onClose={() => setOpenTooltipId(null)} bubbleRef={bubbleRef} />
         )}
       </AnimatePresence>
     </div>
@@ -234,7 +308,7 @@ function ControlToggle({
         ) : (
           <XCircle className="w-3.5 h-3.5 text-red-400" />
         )}
-        <span className="text-[11px] text-slate-300">{label}</span>
+        <span className="text-[11px]" style={{ color: "var(--text-primary, #E2E8F0)" }}>{label}</span>
       </div>
       <div className="flex gap-1">
         {familyIds.map((fam) => (
@@ -256,27 +330,37 @@ function ControlToggle({
   );
 }
 
-function BiasChart({ data }: { data: BiasDataPoint[] }) {
+// ─── Bias Chart (Bug 5: Accessible) ────────────────────────────────
+
+function BiasChart({ data, archetype, actionsPerHr }: { data: BiasDataPoint[]; archetype: string; actionsPerHr: number }) {
   if (data.length === 0) return null;
   const maxAction = Math.max(...data.map((d) => d.action));
   const chartWidth = 100;
   const chartHeight = 60;
 
+  const descText = `Line chart showing human oversight accuracy percentage on the Y-axis versus action count on the X-axis. Accuracy starts at ${data[0]?.accuracy ?? 95}% for 1 action, then declines as action count increases. This models the ASI09 (Automation Bias) risk for a ${archetype} processing ${actionsPerHr} actions per hour.`;
+
   return (
     <div className="mt-3">
       <svg
-        viewBox={`0 0 ${chartWidth} ${chartHeight + 10}`}
-        className="w-full h-24"
+        viewBox={`0 0 ${chartWidth} ${chartHeight + 12}`}
+        className="w-full h-28"
+        role="img"
+        aria-label={`Automation Bias chart: Human oversight accuracy declines as action count increases for ${archetype} at ${actionsPerHr} actions per hour`}
       >
+        <title>Automation Bias — Human Oversight Degradation</title>
+        <desc>{descText}</desc>
+        {/* Bug 5: Faint grid lines */}
         {[95, 82, 65].map((pct) => {
           const y = chartHeight - ((pct - 60) / 40) * chartHeight;
           return (
             <g key={pct}>
               <line
                 x1="0" y1={y} x2={chartWidth} y2={y}
-                stroke="#334155" strokeWidth="0.3" strokeDasharray="2,2"
+                stroke="rgba(148, 163, 184, 0.15)" strokeWidth="0.3"
               />
-              <text x="1" y={y - 1} fill="#64748B" fontSize="3">{pct}%</text>
+              {/* Bug 5: 12px equivalent in SVG viewbox = ~4 units */}
+              <text x="1" y={y - 1.5} fill="var(--text-secondary, #94A3B8)" fontSize="3.5" fontWeight="500">{pct}%</text>
             </g>
           );
         })}
@@ -297,28 +381,42 @@ function BiasChart({ data }: { data: BiasDataPoint[] }) {
           const y = chartHeight - ((d.accuracy - 60) / 40) * chartHeight;
           const isSpike = d.action === 12;
           return (
-            <circle
-              key={d.action}
-              cx={x} cy={y}
-              r={isSpike ? 1.5 : 0.8}
-              fill={isSpike ? "#EF4444" : "#F59E0B"}
-            />
+            <g key={d.action}>
+              <circle
+                cx={x} cy={y}
+                r={isSpike ? 1.5 : 0.8}
+                fill={isSpike ? "#EF4444" : "#F59E0B"}
+              />
+              {/* Bug 5: Data point labels at key points */}
+              {(d.action === 1 || d.action === 12 || d.action === maxAction || d.action === 5) && (
+                <>
+                  <rect x={x - 4} y={y - 6} width="8" height="4" rx="0.5" fill="rgba(15,23,42,0.85)" />
+                  <text x={x} y={y - 3} fill="var(--text-primary, #E2E8F0)" fontSize="2.8" textAnchor="middle" fontWeight="600">
+                    {Math.round(d.accuracy)}%
+                  </text>
+                </>
+              )}
+            </g>
           );
         })}
+        {/* Bug 5: X-axis labels at 12px equivalent */}
         {[1, 5, 10, 15, 20, 25].map((a) => {
           if (a > maxAction) return null;
           const x = (a / maxAction) * (chartWidth - 4) + 2;
           return (
-            <text key={a} x={x} y={chartHeight + 8} fill="#64748B" fontSize="3" textAnchor="middle">
+            <text key={a} x={x} y={chartHeight + 5} fill="var(--text-secondary, #94A3B8)" fontSize="3.5" textAnchor="middle" fontWeight="500">
               {a}
             </text>
           );
         })}
+        {/* Bug 5: Axis labels */}
+        <text x={chartWidth / 2} y={chartHeight + 10} fill="var(--text-secondary, #94A3B8)" fontSize="3" textAnchor="middle">
+          Action Count →
+        </text>
+        <text x="-30" y="3" fill="var(--text-secondary, #94A3B8)" fontSize="2.5" transform={`rotate(-90, 3, ${chartHeight / 2})`} textAnchor="middle">
+          Oversight %
+        </text>
       </svg>
-      <div className="flex justify-between text-[9px] text-slate-500 mt-1 px-1">
-        <span>Action Count &rarr;</span>
-        <span>Human Oversight Accuracy %</span>
-      </div>
     </div>
   );
 }
@@ -336,13 +434,65 @@ export default function ScenarioSimulator() {
   const [showContrast, setShowContrast] = useState(false);
   const [scenarioCount, setScenarioCount] = useState(0);
   const [scenarioGenerated, setScenarioGenerated] = useState(false);
+  const [isPulsing, setIsPulsing] = useState(false);
 
   // Guided mode state
   const [guidedRisk, setGuidedRisk] = useState<string>("Erroneous");
   const [guidedArchetype, setGuidedArchetype] = useState<string>("Single");
   const [guidedPosture, setGuidedPosture] = useState<GovernancePosture>("Standard");
 
-  // Step 3: Scenario Preview (computed when all 3 guided selections are made)
+  // Bug 1: Shared tooltip state at parent level
+  const [openTooltipId, setOpenTooltipId] = useState<string | null>(null);
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
+
+  // Bug 9: Ref for scroll-to-results
+  const resultCardsRef = useRef<HTMLDivElement>(null);
+
+  // Bug 11: Heatmap scroll container ref
+  const heatmapScrollRef = useRef<HTMLDivElement>(null);
+
+  // Bug 3: Escape key dismisses tooltip
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenTooltipId(null);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  // Bug 3: Click-outside dismisses tooltip
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (openTooltipId && bubbleRef.current && !bubbleRef.current.contains(e.target as Node)) {
+        // Also check if click was on an info icon (don't close if clicking another ⓘ)
+        const target = e.target as HTMLElement;
+        const isInfoIcon = target.closest('[aria-label^="More info"]');
+        if (!isInfoIcon) {
+          setOpenTooltipId(null);
+        }
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openTooltipId]);
+
+  // Bug 11: Detect heatmap overflow for scroll fade
+  useEffect(() => {
+    const el = heatmapScrollRef.current;
+    if (!el) return;
+    const checkOverflow = () => {
+      if (el.scrollWidth > el.clientWidth) {
+        el.classList.add('has-overflow');
+      } else {
+        el.classList.remove('has-overflow');
+      }
+    };
+    checkOverflow();
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [scenario]);
+
+  // Step 3: Scenario Preview
   const scenarioPreview = useMemo(() => {
     if (mode !== "guided") return null;
     return generateScenarioPreview(guidedRisk, guidedArchetype, guidedPosture);
@@ -369,8 +519,27 @@ export default function ScenarioSimulator() {
     setShowNarrative(true);
     setShowContrast(false);
     setScenarioGenerated(true);
-    setScenarioCount((c) => c + 1);
-  }, [mode, guidedRisk, guidedArchetype, guidedPosture]);
+    const newCount = scenarioCount + 1;
+    setScenarioCount(newCount);
+
+    // Bug 9: Pulse animation
+    setIsPulsing(true);
+    setTimeout(() => setIsPulsing(false), 700);
+
+    // Bug 9: Scroll to results (first gen always, subsequent only if near top)
+    requestAnimationFrame(() => {
+      const isNearTop = window.scrollY < 400;
+      if (isNearTop || newCount === 1) {
+        resultCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+
+    // Bug 9: Toast notification
+    const modeLabel = mode === "guided"
+      ? `Guided: ${fp.risk_category} × ${fp.agent_archetype} × ${guidedPosture}`
+      : "Random";
+    showToast(`Scenario #${newCount} generated — ${fp.risk_category} × ${fp.agent_archetype} [${modeLabel}]`);
+  }, [mode, guidedRisk, guidedArchetype, guidedPosture, scenarioCount]);
 
   // Compute heatmap data
   const heatmapData = useMemo(() => {
@@ -457,7 +626,7 @@ export default function ScenarioSimulator() {
             <Zap className="w-4 h-4" />
             Scenario Simulator
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs mt-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
             Generate fact patterns and observe how control gaps create security
             breakages across the OWASP-NIST crosswalk.
           </p>
@@ -467,12 +636,12 @@ export default function ScenarioSimulator() {
             {(["random", "guided"] as const).map((m) => (
               <button
                 key={m}
-                onClick={() => setMode(m)}
+                onClick={() => { setMode(m); setOpenTooltipId(null); }}
                 className="px-3 py-1.5 text-[11px] font-semibold transition-all"
                 style={{
                   backgroundColor:
                     mode === m ? "rgba(245,158,11,0.15)" : "transparent",
-                  color: mode === m ? "#F59E0B" : "#64748B",
+                  color: mode === m ? "#F59E0B" : "var(--text-secondary, #94A3B8)",
                 }}
               >
                 {m === "random" ? "Random" : "Guided"}
@@ -491,7 +660,7 @@ export default function ScenarioSimulator() {
             <RefreshCw className="w-3.5 h-3.5" />
             Generate Scenario
             {scenarioCount > 0 && (
-              <span className="text-[10px] text-slate-500 ml-1">
+              <span className="text-[10px] ml-1" style={{ color: "var(--text-caption, #64748B)" }}>
                 #{scenarioCount}
               </span>
             )}
@@ -499,7 +668,7 @@ export default function ScenarioSimulator() {
         </div>
       </div>
 
-      {/* ─── Guided Mode Controls (Steps 1 & 2: Info Bubbles + Selection) ─── */}
+      {/* ─── Guided Mode Controls (Bug 6: Single-click select model) ─── */}
       <AnimatePresence>
         {mode === "guided" && (
           <motion.div
@@ -509,14 +678,15 @@ export default function ScenarioSimulator() {
             className="mb-6 overflow-hidden"
           >
             <div className="p-4 rounded-lg border border-amber-500/20 bg-amber-500/5">
-              <div className="text-[10px] text-slate-500 mb-3 flex items-center gap-1.5">
-                <Info className="w-3 h-3" />
-                Click a card once to learn what it means. Click again to select it.
+              {/* Bug 6: Updated instruction text */}
+              <div className="text-[13px] mb-3 flex items-center gap-1.5" style={{ color: "var(--text-secondary, #94A3B8)" }}>
+                <Info className="w-3.5 h-3.5 shrink-0" />
+                Select one option per column. Click <Info className="w-3 h-3 inline mx-0.5" /> for details.
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Risk Category */}
                 <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-2 block">
+                  <label className="text-[11px] uppercase tracking-wider font-bold mb-2 block" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                     Risk Category
                   </label>
                   <div className="flex flex-wrap gap-1.5">
@@ -527,13 +697,16 @@ export default function ScenarioSimulator() {
                         isSelected={guidedRisk === risk}
                         accentColor={RISK_COLORS[risk]}
                         onSelect={setGuidedRisk}
+                        openTooltipId={openTooltipId}
+                        setOpenTooltipId={setOpenTooltipId}
+                        bubbleRef={bubbleRef}
                       />
                     ))}
                   </div>
                 </div>
                 {/* Agent Archetype */}
                 <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-2 block">
+                  <label className="text-[11px] uppercase tracking-wider font-bold mb-2 block" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                     Agent Archetype
                   </label>
                   <div className="flex flex-wrap gap-1.5">
@@ -544,13 +717,16 @@ export default function ScenarioSimulator() {
                         isSelected={guidedArchetype === arch}
                         accentColor="#F59E0B"
                         onSelect={setGuidedArchetype}
+                        openTooltipId={openTooltipId}
+                        setOpenTooltipId={setOpenTooltipId}
+                        bubbleRef={bubbleRef}
                       />
                     ))}
                   </div>
                 </div>
                 {/* Governance Posture */}
                 <div>
-                  <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-2 block">
+                  <label className="text-[11px] uppercase tracking-wider font-bold mb-2 block" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                     Governance Posture
                   </label>
                   <div className="flex flex-wrap gap-1.5">
@@ -564,6 +740,9 @@ export default function ScenarioSimulator() {
                           onSelect={(key) =>
                             setGuidedPosture(key as GovernancePosture)
                           }
+                          openTooltipId={openTooltipId}
+                          setOpenTooltipId={setOpenTooltipId}
+                          bubbleRef={bubbleRef}
                         />
                       )
                     )}
@@ -584,20 +763,21 @@ export default function ScenarioSimulator() {
                       Scenario Preview
                     </span>
                   </div>
-                  <div className="text-xs font-bold text-slate-200 mb-2">
+                  <div className="text-xs font-bold mb-2" style={{ color: "var(--text-primary, #E2E8F0)" }}>
                     {scenarioPreview.headline}
                   </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
+                  <p className="text-[12px] leading-relaxed mb-3" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                     {scenarioPreview.narrative}
                   </p>
-                  <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">
+                  <div className="text-[10px] uppercase tracking-wider font-bold mb-1.5" style={{ color: "var(--text-caption, #64748B)" }}>
                     Key Questions This Scenario Will Answer
                   </div>
                   <ul className="space-y-1">
                     {scenarioPreview.keyQuestions.map((q, i) => (
                       <li
                         key={i}
-                        className="text-[10px] text-slate-500 flex items-start gap-1.5"
+                        className="text-[11px] flex items-start gap-1.5"
+                        style={{ color: "var(--text-secondary, #94A3B8)" }}
                       >
                         <ArrowRight className="w-3 h-3 text-amber-500/50 mt-0.5 shrink-0" />
                         {q}
@@ -613,18 +793,18 @@ export default function ScenarioSimulator() {
 
       {/* ─── Empty State ─── */}
       {!scenarioGenerated && (
-        <div className="text-center py-20 text-slate-500">
-          <Target className="w-14 h-14 mx-auto mb-4 text-slate-600" />
+        <div className="text-center py-20" style={{ color: "var(--text-secondary, #94A3B8)" }}>
+          <Target className="w-14 h-14 mx-auto mb-4" style={{ color: "var(--text-caption, #64748B)" }} />
           <div className="text-sm font-medium mb-2">No scenario generated yet</div>
-          <div className="text-xs text-slate-600 max-w-md mx-auto">
+          <div className="text-xs max-w-md mx-auto" style={{ color: "var(--text-caption, #64748B)" }}>
             {mode === "guided"
-              ? 'Click the cards above to learn about each option, then select your parameters and click "Generate Scenario" to run the simulation.'
+              ? 'Select your parameters above, then click "Generate Scenario" to run the simulation. Click ⓘ on any card for details.'
               : 'Click "Generate Scenario" to create a randomized fact pattern. The simulator will evaluate which NIST 800-53 controls break under the generated conditions.'}
           </div>
         </div>
       )}
 
-      {/* ─── Scenario Results (Steps 4 & 5) ─── */}
+      {/* ─── Scenario Results ─── */}
       {scenario && result && stats && (
         <motion.div
           key={scenarioCount}
@@ -632,8 +812,8 @@ export default function ScenarioSimulator() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          {/* Bug 9: Summary Cards with pulse + scroll ref */}
+          <div ref={resultCardsRef} className={`grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6 ${isPulsing ? 'card-pulse' : ''}`}>
             <div
               className="rounded-lg p-3 border"
               style={{
@@ -641,7 +821,7 @@ export default function ScenarioSimulator() {
                 backgroundColor: `${RISK_COLORS[scenario.risk_category]}08`,
               }}
             >
-              <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">
+              <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 Risk Category
               </div>
               <div
@@ -650,18 +830,18 @@ export default function ScenarioSimulator() {
               >
                 {scenario.risk_category}
               </div>
-              <div className="text-[10px] text-slate-400 mt-1">
+              <div className="text-[11px] mt-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 {implicatedRisks.length} ASI risks implicated
               </div>
             </div>
             <div className="rounded-lg p-3 border border-amber-500/20 bg-amber-500/5">
-              <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">
+              <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 Archetype
               </div>
               <div className="text-sm font-bold text-amber-400">
                 {ARCHETYPE_LABELS[scenario.agent_archetype]}
               </div>
-              <div className="text-[10px] text-slate-400 mt-1">
+              <div className="text-[11px] mt-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 {oversightLoad} actions/hr load
                 {capacityExceeded && (
                   <span className="text-red-400 ml-1">
@@ -671,22 +851,22 @@ export default function ScenarioSimulator() {
               </div>
             </div>
             <div className="rounded-lg p-3 border border-red-500/20 bg-red-500/5">
-              <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">
+              <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 Broken Controls
               </div>
               <div className="text-sm font-bold text-red-400">{stats.broken}</div>
-              <div className="text-[10px] text-slate-400 mt-1">
+              <div className="text-[11px] mt-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 {stats.brokenFamilies.length} families affected
               </div>
             </div>
             <div className="rounded-lg p-3 border border-emerald-500/20 bg-emerald-500/5">
-              <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">
+              <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 Active Controls
               </div>
               <div className="text-sm font-bold text-emerald-400">
                 {stats.active}
               </div>
-              <div className="text-[10px] text-slate-400 mt-1">
+              <div className="text-[11px] mt-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 {stats.irrelevant} irrelevant
               </div>
             </div>
@@ -720,8 +900,20 @@ export default function ScenarioSimulator() {
                   ? "SECURITY GAPS DETECTED"
                   : "ALL CONTROLS EFFECTIVE"}
               </div>
-              <div className="text-[11px] text-slate-400 leading-relaxed">
+              <div className="text-[12px] leading-relaxed" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 {result.outcome}
+                {/* Bug 10: Mode badge in outcome */}
+                <span
+                  className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium"
+                  style={{
+                    backgroundColor: mode === "guided" ? "rgba(59,130,246,0.15)" : "rgba(100,116,139,0.15)",
+                    color: mode === "guided" ? "#93C5FD" : "var(--text-secondary, #94A3B8)",
+                  }}
+                >
+                  {mode === "guided"
+                    ? `Guided: ${scenario.risk_category} × ${scenario.agent_archetype} × ${guidedPosture}`
+                    : "Random"}
+                </span>
               </div>
             </div>
           </div>
@@ -730,23 +922,31 @@ export default function ScenarioSimulator() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {/* Dynamic Heatmap */}
             <div className="lg:col-span-2">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <h3 className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5" />
                   Dynamic Heatmap — {scenario.risk_category} Scenario
+                  {/* Bug 10: Mode badge */}
+                  <span
+                    className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium"
+                    style={{
+                      backgroundColor: mode === "guided" ? "rgba(30,58,138,0.5)" : "rgba(51,65,85,0.5)",
+                      color: mode === "guided" ? "#93C5FD" : "var(--text-secondary, #94A3B8)",
+                    }}
+                  >
+                    {mode === "guided"
+                      ? `Guided: ${scenario.risk_category} × ${scenario.agent_archetype} × ${guidedPosture}`
+                      : "Random"}
+                  </span>
                 </h3>
                 <div className="flex items-center gap-3">
                   {(["active", "broken", "irrelevant"] as const).map(
                     (state) => (
-                      <div key={state} className="flex items-center gap-1">
-                        <div
-                          className="w-2.5 h-2.5 rounded-sm"
-                          style={{
-                            backgroundColor: CELL_COLORS[state].bg,
-                            border: `1px solid ${CELL_COLORS[state].border}`,
-                          }}
-                        />
-                        <span className="text-[9px] text-slate-500">
+                      <div key={state} className="flex items-center gap-1.5">
+                        {state === "active" && <ActiveIcon />}
+                        {state === "broken" && <BrokenIcon />}
+                        {state === "irrelevant" && <IrrelevantIcon />}
+                        <span className="text-[10px]" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                           {CELL_COLORS[state].label}
                         </span>
                       </div>
@@ -754,25 +954,40 @@ export default function ScenarioSimulator() {
                   )}
                 </div>
               </div>
-              <div className="overflow-x-auto">
+
+              {/* Bug 11: Responsive scroll hint on mobile */}
+              <div className="text-[11px] mb-2 hidden max-[768px]:block" style={{ color: "var(--text-caption, #64748B)" }}>
+                Scroll horizontally to see all control families →
+              </div>
+
+              {/* Bug 11: Responsive heatmap container */}
+              <div ref={heatmapScrollRef} className="heatmap-scroll-container">
                 <table
                   className="w-full border-collapse"
                   style={{ fontSize: 11 }}
+                  role="table"
+                  aria-label="Dynamic scenario heatmap showing control status per ASI risk and NIST family"
                 >
                   <thead>
                     <tr>
-                      <th className="text-left text-[10px] text-slate-500 font-medium p-1.5 sticky left-0 bg-[#0a0e1a] z-10">
+                      <th
+                        className="text-left text-[11px] font-medium p-1.5 sticky left-0 z-10"
+                        style={{ color: "var(--text-secondary, #94A3B8)", backgroundColor: "#0a0e1a", minWidth: 64 }}
+                        scope="col"
+                      >
                         ASI Risk
                       </th>
                       {NIST_800_53.map((fam) => (
                         <th
                           key={fam.id}
                           className="text-center p-1"
-                          style={{ minWidth: 32 }}
+                          style={{ minWidth: 36 }}
                           title={FAMILY_FULL_NAMES[fam.id] || fam.id}
+                          scope="col"
                         >
+                          {/* Bug 8: Column header at 12px */}
                           <span
-                            className="text-[9px] font-bold"
+                            className="text-[12px] font-bold"
                             style={{
                               color: fam.color,
                               fontFamily: "var(--font-mono)",
@@ -791,8 +1006,9 @@ export default function ScenarioSimulator() {
                         className="hover:bg-slate-800/30 transition-colors"
                       >
                         <td
-                          className="p-1.5 text-[10px] font-bold text-slate-300 sticky left-0 bg-[#0a0e1a] z-10 whitespace-nowrap"
-                          style={{ fontFamily: "var(--font-mono)" }}
+                          className="p-1.5 text-[11px] font-bold sticky left-0 z-10 whitespace-nowrap"
+                          style={{ color: "var(--text-primary, #E2E8F0)", fontFamily: "var(--font-mono)", backgroundColor: "#0a0e1a" }}
+                          scope="row"
                         >
                           {row.asiId}
                         </td>
@@ -802,33 +1018,24 @@ export default function ScenarioSimulator() {
                             <td
                               key={cell.familyId}
                               className="p-0.5 text-center"
+                              aria-label={`${row.asiId} × ${cell.familyId}: ${colors.label}`}
                             >
+                              {/* Bug 8: 32×32px cells */}
                               <div
-                                className="w-full h-6 rounded-sm flex items-center justify-center transition-all duration-200"
+                                className="flex items-center justify-center transition-all duration-200 rounded-sm"
                                 style={{
+                                  width: 32,
+                                  height: 32,
                                   backgroundColor: colors.bg,
                                   border: `1px solid ${colors.border}40`,
+                                  margin: "0 auto",
                                 }}
                                 title={`${row.asiId} × ${cell.familyId} (${FAMILY_FULL_NAMES[cell.familyId] || cell.familyId}): ${colors.label}`}
                               >
-                                {cell.state === "broken" && (
-                                  <XCircle
-                                    className="w-3 h-3"
-                                    style={{ color: colors.text }}
-                                  />
-                                )}
-                                {cell.state === "active" && (
-                                  <CheckCircle2
-                                    className="w-3 h-3"
-                                    style={{ color: colors.text }}
-                                  />
-                                )}
-                                {cell.state === "irrelevant" && (
-                                  <Minus
-                                    className="w-2.5 h-2.5"
-                                    style={{ color: colors.text }}
-                                  />
-                                )}
+                                {/* Bug 7: Shape-coded icons */}
+                                {cell.state === "active" && <ActiveIcon />}
+                                {cell.state === "broken" && <BrokenIcon />}
+                                {cell.state === "irrelevant" && <IrrelevantIcon />}
                               </div>
                             </td>
                           );
@@ -842,8 +1049,8 @@ export default function ScenarioSimulator() {
 
             {/* Control State Panel */}
             <div>
-              <h3 className="text-xs font-bold text-slate-300 flex items-center gap-1.5 mb-3">
-                <Shield className="w-3.5 h-3.5 text-slate-400" />
+              <h3 className="text-xs font-bold flex items-center gap-1.5 mb-3" style={{ color: "var(--text-primary, #E2E8F0)" }}>
+                <Shield className="w-3.5 h-3.5" style={{ color: "var(--text-secondary, #94A3B8)" }} />
                 Control State
               </h3>
               <div className="space-y-1.5">
@@ -868,31 +1075,31 @@ export default function ScenarioSimulator() {
 
               {/* Impact & Likelihood */}
               <div className="mt-4 pt-4 border-t border-slate-700/50">
-                <h4 className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-2">
+                <h4 className="text-[11px] uppercase tracking-wider font-bold mb-2" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                   Impact Profile
                 </h4>
-                <div className="space-y-1 text-[10px]">
+                <div className="space-y-1 text-[11px]">
                   {Object.entries(scenario.impact_profile).map(([k, v]) => (
                     <div key={k} className="flex justify-between">
-                      <span className="text-slate-500">
+                      <span style={{ color: "var(--text-secondary, #94A3B8)" }}>
                         {k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                       </span>
-                      <span className="text-slate-300 font-mono">{v}</span>
+                      <span className="font-mono" style={{ color: "var(--text-primary, #E2E8F0)" }}>{v}</span>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-slate-700/50">
-                <h4 className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-2">
+                <h4 className="text-[11px] uppercase tracking-wider font-bold mb-2" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                   Likelihood Profile
                 </h4>
-                <div className="space-y-1 text-[10px]">
+                <div className="space-y-1 text-[11px]">
                   {Object.entries(scenario.likelihood_profile).map(([k, v]) => (
                     <div key={k} className="flex justify-between">
-                      <span className="text-slate-500">
+                      <span style={{ color: "var(--text-secondary, #94A3B8)" }}>
                         {k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                       </span>
-                      <span className="text-slate-300 font-mono">{v}</span>
+                      <span className="font-mono" style={{ color: "var(--text-primary, #E2E8F0)" }}>{v}</span>
                     </div>
                   ))}
                 </div>
@@ -923,7 +1130,7 @@ export default function ScenarioSimulator() {
                     className="overflow-hidden"
                   >
                     <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4">
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-3">
+                      <div className="text-[11px] uppercase tracking-wider font-bold mb-3" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                         Broken Control Families — Why They Matter
                       </div>
                       {narrative.sections
@@ -935,17 +1142,17 @@ export default function ScenarioSimulator() {
                           >
                             <div className="flex items-center gap-2 mb-1.5">
                               <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                              <span className="text-[11px] font-bold text-red-400 font-mono">
+                              <span className="text-[12px] font-bold text-red-400 font-mono">
                                 {section.familyId}
                               </span>
-                              <span className="text-[11px] text-slate-300">
+                              <span className="text-[12px]" style={{ color: "var(--text-primary, #E2E8F0)" }}>
                                 — {section.familyFullName}
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-400 leading-relaxed mb-1">
+                            <p className="text-[12px] leading-relaxed mb-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                               {section.consequence}
                             </p>
-                            <p className="text-[10px] text-slate-600 italic">
+                            <p className="text-[13px] italic" style={{ color: "var(--text-caption, #64748B)" }}>
                               {section.explanation}
                             </p>
                           </div>
@@ -954,7 +1161,7 @@ export default function ScenarioSimulator() {
                       {narrative.sections.filter((s) => s.status === "active")
                         .length > 0 && (
                         <>
-                          <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-3 mt-4">
+                          <div className="text-[11px] uppercase tracking-wider font-bold mb-3 mt-4" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                             Active Control Families — What Is Holding
                           </div>
                           {narrative.sections
@@ -966,14 +1173,14 @@ export default function ScenarioSimulator() {
                               >
                                 <div className="flex items-center gap-2 mb-1.5">
                                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                  <span className="text-[11px] font-bold text-emerald-400 font-mono">
+                                  <span className="text-[12px] font-bold text-emerald-400 font-mono">
                                     {section.familyId}
                                   </span>
-                                  <span className="text-[11px] text-slate-300">
+                                  <span className="text-[12px]" style={{ color: "var(--text-primary, #E2E8F0)" }}>
                                     — {section.familyFullName}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                                   {section.consequence}
                                 </p>
                               </div>
@@ -1011,7 +1218,7 @@ export default function ScenarioSimulator() {
                     className="overflow-hidden"
                   >
                     <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
-                      <p className="text-[11px] text-slate-400 leading-relaxed mb-4">
+                      <p className="text-[12px] leading-relaxed mb-4" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                         {contrast.summary}
                       </p>
 
@@ -1029,14 +1236,14 @@ export default function ScenarioSimulator() {
                           }}
                         >
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="text-[11px] font-bold font-mono text-slate-300">
+                            <span className="text-[12px] font-bold font-mono" style={{ color: "var(--text-primary, #E2E8F0)" }}>
                               {imp.familyId}
                             </span>
-                            <span className="text-[11px] text-slate-400">
+                            <span className="text-[12px]" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                               — {imp.familyFullName}
                             </span>
                             {imp.wasBroken && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
                                 Was Broken
                               </span>
                             )}
@@ -1044,28 +1251,28 @@ export default function ScenarioSimulator() {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <div className="text-[9px] text-red-400/70 uppercase tracking-wider font-bold mb-1">
+                              <div className="text-[10px] text-red-400/70 uppercase tracking-wider font-bold mb-1">
                                 Before (Current Posture)
                               </div>
-                              <p className="text-[10px] text-slate-500 leading-relaxed">
+                              <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                                 {imp.beforeState}
                               </p>
                             </div>
                             <div>
-                              <div className="text-[9px] text-emerald-400/70 uppercase tracking-wider font-bold mb-1">
+                              <div className="text-[10px] text-emerald-400/70 uppercase tracking-wider font-bold mb-1">
                                 After (Full Governance)
                               </div>
-                              <p className="text-[10px] text-slate-400 leading-relaxed">
+                              <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                                 {imp.afterState}
                               </p>
                             </div>
                           </div>
 
                           <div className="mt-2 pt-2 border-t border-slate-700/30">
-                            <div className="text-[9px] text-amber-400/70 uppercase tracking-wider font-bold mb-1">
+                            <div className="text-[10px] text-amber-400/70 uppercase tracking-wider font-bold mb-1">
                               What Changes
                             </div>
-                            <p className="text-[10px] text-slate-400 leading-relaxed">
+                            <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                               {imp.whatChanges}
                             </p>
                           </div>
@@ -1073,10 +1280,10 @@ export default function ScenarioSimulator() {
                       ))}
 
                       <div className="mt-4 p-3 rounded-md bg-slate-800/50 border border-slate-700/50">
-                        <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">
+                        <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                           Overall Verdict
                         </div>
-                        <p className="text-[11px] text-slate-300 leading-relaxed italic">
+                        <p className="text-[12px] leading-relaxed italic" style={{ color: "var(--text-primary, #E2E8F0)" }}>
                           {contrast.overallVerdict}
                         </p>
                       </div>
@@ -1087,24 +1294,28 @@ export default function ScenarioSimulator() {
             </div>
           )}
 
-          {/* Automation Bias Curve */}
+          {/* Automation Bias Curve (Bug 5: Accessible) */}
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 mb-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
                 <Gauge className="w-3.5 h-3.5" />
                 Automation Bias — Human Oversight Degradation
               </h3>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[11px]" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                 {ARCHETYPE_LABELS[scenario.agent_archetype]} &middot;{" "}
                 {oversightLoad} actions/hr
               </div>
             </div>
-            <p className="text-[10px] text-slate-500 mb-2">
+            <p className="text-[11px] mb-2" style={{ color: "var(--text-secondary, #94A3B8)" }}>
               As action count increases, human oversight accuracy degrades. The
               spike at action 12 represents a false-confidence recovery before
               accelerated decline. This models ASI09 (Automation Bias) risk.
             </p>
-            <BiasChart data={biasData} />
+            <BiasChart
+              data={biasData}
+              archetype={ARCHETYPE_LABELS[scenario.agent_archetype]}
+              actionsPerHr={oversightLoad}
+            />
           </div>
 
           {/* Cascade Path */}
@@ -1133,7 +1344,8 @@ export default function ScenarioSimulator() {
                       {result.cascade_path.map((path, i) => (
                         <div
                           key={i}
-                          className="text-[11px] text-orange-300/80 font-mono px-3 py-1.5 rounded bg-orange-500/5 border border-orange-500/10"
+                          className="text-[12px] font-mono px-3 py-1.5 rounded bg-orange-500/5 border border-orange-500/10"
+                          style={{ color: "rgba(253,186,116,0.8)" }}
                         >
                           {path}
                         </div>
@@ -1177,17 +1389,17 @@ export default function ScenarioSimulator() {
                           className="rounded-md p-3 border border-slate-700/50 bg-slate-900/50"
                         >
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-bold text-blue-400 font-mono">
+                            <span className="text-[12px] font-bold text-blue-400 font-mono">
                               {risk.asiId} — {asiMeta?.name}
                             </span>
-                            <span className="text-[10px] text-slate-500">
+                            <span className="text-[11px]" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                               Weight: {(risk.weight * 100).toFixed(0)}%
                             </span>
                           </div>
-                          <p className="text-[10px] text-slate-400 leading-relaxed">
+                          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary, #94A3B8)" }}>
                             {risk.rationale}
                           </p>
-                          <p className="text-[9px] text-slate-600 mt-1 italic">
+                          <p className="text-[13px] mt-1 italic" style={{ color: "var(--text-caption, #64748B)" }}>
                             {risk.imdaRef}
                           </p>
                         </div>

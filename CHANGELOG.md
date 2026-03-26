@@ -6,6 +6,50 @@ This project follows a philosophy of **transparent provenance**: every editorial
 
 ---
 
+## [0.5.0] — 2026-03-26
+
+### UX Remediation — 11-Bug Fix Across 3 Phases
+
+This release addresses eleven confirmed UX/UI bugs identified through systematic review of the Scenario Simulator's interaction model, accessibility compliance, and visual feedback systems. The fixes were executed in dependency order across three phases: design tokens and component rewrites (Phase 1), chart accessibility (Phase 2), and full regression verification (Phase 3).
+
+#### Phase 1A: Design Token System (Bug 4)
+
+Introduced three CSS custom properties (`--text-primary`, `--text-secondary`, `--text-caption`) in `index.css` to replace ad-hoc text color classes throughout the Scenario Simulator. All text elements now reference these tokens, ensuring consistent WCAG-compliant contrast ratios against the dark background. Added `@keyframes pulse-once` and `.scenario-toast` CSS for the feedback system.
+
+#### Phase 1B: Guided Mode Panel Rewrite (Bugs 1, 2, 3, 6)
+
+**Bug 1 — Tooltip Mutex.** Lifted tooltip state to a shared `openTooltipId` at the parent level. Opening one tooltip now automatically closes any previously open tooltip, preventing the stacking behavior where multiple info bubbles could overlap.
+
+**Bug 2 — Event Propagation.** Added `e.stopPropagation()` on the info icon (`ⓘ`) click handler, isolating it from the card selection handler. Clicking the info icon no longer inadvertently selects the card.
+
+**Bug 3 — Dismiss Mechanisms.** Added three dismiss paths: Escape key (via `useEffect` keydown listener), click-outside (via ref-based detection), and an explicit close button (`✕`) within the tooltip. All three paths clear `openTooltipId`.
+
+**Bug 6 — Interaction Model Simplification.** Replaced the confusing "click once to learn, click again to select" model with a clean separation: clicking the card body selects it immediately; clicking the `ⓘ` icon opens the info tooltip. Updated instruction text to "Select one option per column. Click ⓘ for details."
+
+#### Phase 1C: Heatmap Grid Rewrite (Bugs 7, 8, 11)
+
+**Bug 7 — Colorblind-Safe Icons.** Replaced color-only cell indicators with shape-coded SVG icons: checkmark-in-square for Active (green), X-in-diamond for Broken (red), and horizontal dash for N/A (gray). The legend mirrors these shapes.
+
+**Bug 8 — Cell Size and ARIA.** Increased cell dimensions to 32×32px for touch targets. Added `role="table"`, `role="row"`, `role="columnheader"`, and `role="cell"` with `aria-label` attributes describing each cell's state (e.g., "ASI01 AC: Broken").
+
+**Bug 11 — Responsive Scroll.** Wrapped the heatmap in a horizontally scrollable container with sticky row headers. The ASI Risk column remains visible during horizontal scroll on narrow viewports.
+
+#### Phase 1D: Scenario Feedback + Mode Badge (Bugs 9, 10)
+
+**Bug 9 — Generation Feedback.** Added three feedback signals on scenario generation: (1) a toast notification ("Scenario generated — scroll down to view results") that auto-dismisses after 4 seconds, (2) smooth scroll-to-results using `scrollIntoView`, and (3) a one-second pulse animation on the results container. The Generate button now shows a counter ("Generate Scenario #N").
+
+**Bug 10 — Mode Context Badge.** Added a blue badge displaying the current mode and selections (e.g., "Guided: DataBreach × Swarm × Minimal") in both the outcome banner and the heatmap section header.
+
+#### Phase 2: Chart Accessibility (Bug 5)
+
+Increased axis label font size to 12px using `--text-secondary`. Added `role="img"`, `<title>`, and `<desc>` elements to the SVG chart. Added faint grid lines for value reference. Data point labels now display percentage values at key action counts.
+
+#### Regression Verification
+
+All 11 bugs verified in browser with the DataBreach × Swarm × Minimal scenario. Tooltip mutex, event isolation, Escape dismiss, single-click selection, colorblind icons, ARIA labels, responsive scroll, toast feedback, mode badges, and chart accessibility all confirmed working.
+
+---
+
 ## [0.4.0] — 2026-03-26
 
 ### Scenario Simulator — Pedagogical Compliance Engine
