@@ -399,10 +399,7 @@ export default function Home() {
                           >
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span 
-                                  className="cursor-help" 
-                                  title={`${f.id} — ${f.name}: ${descriptions[f.id]}`}
-                                >
+                                <span className="cursor-help">
                                   {f.id}
                                 </span>
                               </TooltipTrigger>
