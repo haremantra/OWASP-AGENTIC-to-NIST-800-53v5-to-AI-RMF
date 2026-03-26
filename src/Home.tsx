@@ -468,20 +468,34 @@ export default function Home() {
                       <th scope="col" className="text-left p-3 bg-slate-900 text-slate-200 font-semibold min-w-[220px]">
                         OWASP ASI Risk
                       </th>
-                      {AI_RMF.map((f) => (
-                        <th
-                          key={f.id}
-                          scope="col"
-                          className="text-center text-white font-bold p-3 min-w-[110px]"
-                          style={{
-                            backgroundColor: f.color,
-                            fontFamily: "var(--font-mono)",
-                            letterSpacing: "1px",
-                          }}
-                        >
-                          {f.name}
-                        </th>
-                      ))}
+                      {AI_RMF.map((f) => {
+                        const descriptions: Record<string, string> = {
+                          GOVERN: "Establish AI governance structures, policies, and accountability mechanisms for managing agentic AI systems.",
+                          MAP: "Map and characterize AI risks, including context establishment, categorization, and impact assessment.",
+                          MEASURE: "Measure and track AI risks through metrics, trustworthiness evaluation, and effectiveness monitoring.",
+                          MANAGE: "Manage AI risks through prioritization, treatment, response, recovery, and residual risk acceptance.",
+                        };
+                        return (
+                          <Tooltip key={f.id}>
+                            <TooltipTrigger asChild>
+                              <th
+                                scope="col"
+                                className="text-center text-white font-bold p-3 min-w-[110px] cursor-help"
+                                style={{
+                                  backgroundColor: f.color,
+                                  fontFamily: "var(--font-mono)",
+                                  letterSpacing: "1px",
+                                }}
+                              >
+                                {f.name}
+                              </th>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs font-normal max-w-xs">
+                              {descriptions[f.id]}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
