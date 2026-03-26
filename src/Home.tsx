@@ -37,6 +37,7 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import ScenarioSimulator from "@/pages/ScenarioSimulator";
+import { NIST_CONTROL_DESCRIPTIONS } from "@/lib/nist-control-descriptions";
 
 const HERO_IMAGE = "https://d2xsxph8kpxj0f.cloudfront.net/310519663361461713/Bxv8kAWRJNLYA27hMDxSrg/hero-banner-WgxSTgdd9RwHSwF7ESq4Lf.webp";
 
@@ -68,6 +69,12 @@ function MappingCard({
   items: { id: string; text: string }[];
   color: string;
 }) {
+  // Extract control ID from text (e.g., "AC-3 Access Enforcement" -> "AC-3")
+  const extractControlId = (text: string): string | null => {
+    const match = text.match(/^([A-Z]{2}-\d{1,2})\s/);
+    return match ? match[1] : null;
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -84,16 +91,44 @@ function MappingCard({
         <div className="font-bold text-xs mb-1.5" style={{ color, fontFamily: "var(--font-mono)" }}>
           {title}
         </div>
-        {items.map((item, i) => (
-          <div key={i} className="text-[11px] leading-relaxed text-slate-300 mb-1">
-            {item.id && (
-              <span className="font-semibold mr-1" style={{ color, fontFamily: "var(--font-mono)" }}>
-                {item.id}
-              </span>
-            )}
-            {item.text}
-          </div>
-        ))}
+        {items.map((item, i) => {
+          const controlId = extractControlId(item.text);
+          const controlDesc = controlId ? NIST_CONTROL_DESCRIPTIONS[controlId] : null;
+          const isRationale = item.id === "\u21b3";
+          
+          return (
+            <div key={i} className="text-[11px] leading-relaxed text-slate-300 mb-1">
+              {item.id && (
+                <span className="font-semibold mr-1" style={{ color, fontFamily: "var(--font-mono)" }}>
+                  {item.id}
+                </span>
+              )}
+              {controlDesc && !isRationale ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help border-b border-dashed" style={{ borderColor: color }}>
+                      {item.text}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs">
+                    <div className="text-xs">
+                      <div className="font-bold mb-1">{controlDesc.title}</div>
+                      <div className="text-[11px] mb-2 text-slate-300">{controlDesc.description}</div>
+                      <div className="text-[10px] text-slate-400 italic mb-2">{controlDesc.implementation}</div>
+                      {controlDesc.relatedASI.length > 0 && (
+                        <div className="text-[10px] text-slate-400">
+                          <span className="font-semibold">Related ASI:</span> {controlDesc.relatedASI.join(", ")}
+                        </div>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <span>{item.text}</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </motion.div>
   );
