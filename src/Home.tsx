@@ -99,7 +99,7 @@ function MappingCard({
   );
 }
 
-function HeatCell({ count, max }: { count: number; max: number }) {
+function HeatCell({ count, max, riskId, riskName, familyCode }: { count: number; max: number; riskId: string; riskName: string; familyCode: string }) {
   const intensity = max > 0 ? count / max : 0;
   const bg =
     count === 0
@@ -122,13 +122,14 @@ function HeatCell({ count, max }: { count: number; max: number }) {
         fontFamily: count > 0 ? "var(--font-mono)" : "inherit",
         minWidth: 36,
       }}
+      aria-label={count > 0 ? `${riskId} ${riskName} × ${familyCode}: ${count} controls mapped` : `${riskId} ${riskName} × ${familyCode}: no controls mapped`}
     >
       {count || ""}
     </td>
   );
 }
 
-function AIRmfHeatCell({ count, max }: { count: number; max: number }) {
+function AIRmfHeatCell({ count, max, riskId, riskName, functionName }: { count: number; max: number; riskId: string; riskName: string; functionName: string }) {
   const intensity = max > 0 ? count / max : 0;
   const bg =
     count === 0
@@ -151,6 +152,7 @@ function AIRmfHeatCell({ count, max }: { count: number; max: number }) {
         fontFamily: count > 0 ? "var(--font-mono)" : "inherit",
         minWidth: 100,
       }}
+      aria-label={count > 0 ? `${riskId} ${riskName} × ${functionName}: ${count} subcategories` : `${riskId} ${riskName} × ${functionName}: no subcategories`}
     >
       {count || ""}
     </td>
@@ -166,14 +168,14 @@ function StatCard({ label, value, color, subtitle }: { label: string; value: str
         borderColor: `${color}30`,
       }}
     >
-      <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: `${color}90` }}>
+      <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: `${color}` }}>
         {label}
       </div>
       <div className="text-xl font-bold" style={{ color, fontFamily: "var(--font-mono)" }}>
         {value}
       </div>
       {subtitle && (
-        <div className="mt-1" style={{ fontSize: 11, color: "#94a3b8" }}>
+        <div className="mt-1" style={{ fontSize: 11, color: "#94A3B8" }}>
           {subtitle}
         </div>
       )}
@@ -297,7 +299,7 @@ export default function Home() {
 
           {/* Stats row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-            <StatCard label="ASI Risks" value={OWASP_ASI.length} color="#3B82F6" />
+            <StatCard label="ASI Risks" value={OWASP_ASI.length} color="#3B82F6" subtitle={`across ${OWASP_ASI.length} threat categories`} />
             <StatCard label="Unique 800-53 Controls" value={uniqueControls} color="#3B82F6" subtitle={`${totalControls} total control mappings across ${OWASP_ASI.length} ASI risks`} />
             <StatCard label="Unique AI-RMF Categories" value={uniqueCategories} color="#10B981" subtitle={`${totalCategories} total category mappings across ${OWASP_ASI.length} ASI risks`} />
             <StatCard label="Critical Risks" value={OWASP_ASI.filter((a) => a.severity === "Critical").length} color="#EF4444" subtitle="ASI01, ASI03, ASI08, ASI10 rated Critical severity" />
@@ -317,7 +319,7 @@ export default function Home() {
               }}
               className="flex items-center gap-2 px-5 py-3 text-[13px] font-medium transition-all duration-150 border-b-2"
               style={{
-                color: view === tab.key ? "#3B82F6" : "#64748B",
+                color: view === tab.key ? "#3B82F6" : "#94A3B8",
                 backgroundColor: view === tab.key ? "rgba(59,130,246,0.06)" : "transparent",
                 borderBottomColor: view === tab.key ? "#3B82F6" : "transparent",
               }}
@@ -355,15 +357,16 @@ export default function Home() {
               </div>
               <TooltipProvider delayDuration={200}>
               <div className="overflow-x-auto rounded-lg border border-slate-700/50 scanline-overlay">
-                <table className="w-full border-collapse" style={{ fontSize: 11 }}>
+                <table className="w-full border-collapse" role="table" aria-label="OWASP ASI to NIST 800-53 control density heatmap" style={{ fontSize: 11 }}>
                   <thead>
                     <tr>
-                      <th className="text-left p-2 bg-slate-900 text-slate-200 font-semibold sticky left-0 z-10 min-w-[180px]" style={{ fontFamily: "var(--font-sans)" }}>
+                      <th scope="col" className="text-left p-2 bg-slate-900 text-slate-200 font-semibold sticky left-0 z-10 min-w-[180px]" style={{ fontFamily: "var(--font-sans)" }}>
                         OWASP ASI Risk
                       </th>
                       {NIST_800_53.map((f) => (
                         <th
                           key={f.id}
+                          scope="col"
                           className="bg-slate-900 text-slate-300 font-medium"
                           style={{
                             padding: "6px 2px",
@@ -397,19 +400,22 @@ export default function Home() {
                           setView("detail");
                         }}
                         className="cursor-pointer transition-colors duration-100 hover:bg-[rgba(59,130,246,0.08)] group"
+                        role="row"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedASI(asi.id); setView('detail'); } }}
                       >
-                        <td className="p-2 border-b border-slate-700/30 sticky left-0 bg-background group-hover:bg-[rgba(59,130,246,0.08)] z-10">
+                        <td scope="row" className="p-2 border-b border-slate-700/30 sticky left-0 bg-background group-hover:bg-[rgba(59,130,246,0.08)] z-10">
                           <div className="flex items-center gap-2">
                             <span className="text-blue-400 font-semibold" style={{ fontFamily: "var(--font-mono)" }}>
                               {asi.id}
                             </span>
                             <span className="text-slate-200 font-medium text-[11px]">{asi.name}</span>
                             <SeverityBadge level={asi.severity} />
-                            <ChevronRight className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+                            <ChevronRight className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
                           </div>
                         </td>
                         {NIST_800_53.map((f) => (
-                          <HeatCell key={f.id} count={heatmapData.data[asi.id][f.id]} max={heatmapData.maxVal} />
+                          <HeatCell key={f.id} count={heatmapData.data[asi.id][f.id]} max={heatmapData.maxVal} riskId={asi.id} riskName={asi.name} familyCode={f.id} />
                         ))}
                       </tr>
                     ))}
@@ -418,7 +424,7 @@ export default function Home() {
               </div>
               </TooltipProvider>
               {/* Legend */}
-              <div className="mt-4 flex gap-3 items-center text-[11px] text-slate-500">
+              <div className="mt-4 flex gap-3 items-center text-[11px] text-slate-400">
                 <span className="font-medium">Density:</span>
                 {[
                   { bg: "rgba(15,23,42,0.5)", label: "0" },
@@ -453,19 +459,20 @@ export default function Home() {
                   OWASP ASI → NIST AI-RMF Function Coverage
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Each cell shows how many AI-RMF subcategories map to that ASI risk across GOVERN, MAP, MEASURE, MANAGE.
+                  Each cell shows how many AI-RMF subcategories map to that ASI risk across GOVERN, MAP, MEASURE, MANAGE. Click any row for full detail.
                 </p>
               </div>
               <div className="overflow-x-auto rounded-lg border border-slate-700/50 scanline-overlay">
-                <table className="w-full border-collapse" style={{ fontSize: 12 }}>
+                <table className="w-full border-collapse" role="table" aria-label="OWASP ASI to NIST AI-RMF function coverage heatmap" style={{ fontSize: 12 }}>
                   <thead>
                     <tr>
-                      <th className="text-left p-3 bg-slate-900 text-slate-200 font-semibold min-w-[220px]">
+                      <th scope="col" className="text-left p-3 bg-slate-900 text-slate-200 font-semibold min-w-[220px]">
                         OWASP ASI Risk
                       </th>
                       {AI_RMF.map((f) => (
                         <th
                           key={f.id}
+                          scope="col"
                           className="text-center text-white font-bold p-3 min-w-[110px]"
                           style={{
                             backgroundColor: f.color,
@@ -487,19 +494,22 @@ export default function Home() {
                           setView("detail");
                         }}
                         className="cursor-pointer transition-colors duration-100 hover:bg-[rgba(34,197,94,0.08)] group"
+                        role="row"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedASI(asi.id); setView('detail'); } }}
                       >
-                        <td className="p-3 border-b border-slate-700/30">
+                        <td scope="row" className="p-3 border-b border-slate-700/30">
                           <div className="flex items-center gap-2">
                             <span className="text-emerald-400 font-semibold" style={{ fontFamily: "var(--font-mono)" }}>
                               {asi.id}
                             </span>
                             <span className="text-slate-200 font-medium">{asi.name}</span>
                             <SeverityBadge level={asi.severity} />
-                            <ChevronRight className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+                            <ChevronRight className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
                           </div>
                         </td>
                         {AI_RMF.map((f) => (
-                          <AIRmfHeatCell key={f.id} count={aiRmfHeatmap.data[asi.id][f.id]} max={aiRmfHeatmap.maxVal} />
+                          <AIRmfHeatCell key={f.id} count={aiRmfHeatmap.data[asi.id][f.id]} max={aiRmfHeatmap.maxVal} riskId={asi.id} riskName={asi.name} functionName={f.name} />
                         ))}
                       </tr>
                     ))}
@@ -669,9 +679,9 @@ export default function Home() {
                     key="empty"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="text-center py-16 text-slate-500"
+                    className="text-center py-16 text-slate-400"
                   >
-                    <Shield className="w-12 h-12 mx-auto mb-4 text-slate-600" />
+                    <Shield className="w-12 h-12 mx-auto mb-4 text-slate-500" />
                     <div className="text-sm">Select an ASI risk above to explore its crosswalk</div>
                   </motion.div>
                 )}
@@ -733,10 +743,10 @@ export default function Home() {
             </div>
           </div>
           {/* Sources */}
-          <p className="text-[10px] text-slate-500 leading-relaxed text-center">
+          <p className="text-[11px] text-slate-400 leading-relaxed text-center">
             Sources: OWASP Top 10 for Agentic Applications v2026 (CC BY-SA 4.0) | NIST SP 800-53 Rev 5 | NIST AI 100-1 (AI RMF 1.0) | NIST AI 600-1 GenAI Profile
           </p>
-          <p className="text-[10px] text-slate-600 mt-1 text-center">
+          <p className="text-[11px] text-slate-400 mt-1 text-center">
             Copyright &copy; {new Date().getFullYear()} haremantra. All rights reserved for the hosted service. Source code available under AGPL-3.0.
           </p>
         </div>

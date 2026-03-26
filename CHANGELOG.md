@@ -6,6 +6,24 @@ This project follows a philosophy of **transparent provenance**: every editorial
 
 ---
 
+## [0.5.2] — 2026-03-26
+
+### Tier 2 Accessibility & UX Consistency — Fixes 6–10
+
+Five fixes targeting WCAG AA compliance, screen reader support, motion sensitivity, and cross-heatmap UX parity.
+
+**Fix 6: AI-RMF Row Clickability.** The AI-RMF heatmap rows already had `onClick` handlers and `cursor-pointer`, but lacked the helper text, keyboard accessibility, and ARIA roles present on the 800-53 heatmap. Added "Click any row for full detail" to the description text. Added `role="row"`, `tabIndex={0}`, and `onKeyDown` (Enter/Space → navigate to Evidence Explorer) to all AI-RMF rows. Added `scope="row"` to row header cells. Both heatmaps now have identical interaction affordances.
+
+**Fix 7: WCAG AA Text Contrast.** Audited all text elements against the `#0F172A` background. Bumped inactive tab labels from `#64748B` (~3.5:1) to `#94A3B8` (~5.5:1). Bumped stat card labels from `${color}90` (semi-transparent) to full brand color. Bumped footer source text from `text-[10px] text-slate-500` to `text-[11px] text-slate-400`. Bumped legend text to `text-slate-400`. The remaining `text-slate-500` instance is a decorative icon (Shield) in the empty Evidence Explorer state, which is non-informational.
+
+**Fix 8: Heatmap Cell Aria-Labels.** Refactored `HeatCell` and `AIRmfHeatCell` components to accept `riskId`, `riskName`, and `familyCode`/`functionName` props. Every cell now has a descriptive `aria-label` (e.g., "ASI01 Agent Goal Hijack × AC: 3 controls mapped" or "ASI01 Agent Goal Hijack × GOVERN: 2 subcategories"). Both `<table>` elements now have `role="table"` and `aria-label`. All column headers have `scope="col"`. Total: 160 800-53 cells + 40 AI-RMF cells = 200 labeled cells across both heatmaps.
+
+**Fix 9: prefers-reduced-motion.** Added a global CSS media query that suppresses all `animation-duration`, `animation-iteration-count`, `transition-duration`, and `scroll-behavior` when the user's OS requests reduced motion. Wrapped the card-pulse and toast-enter animations in `@media (prefers-reduced-motion: no-preference)` so they only play when the user has not opted out. The hero background is a static image (not canvas), so no JS check was needed.
+
+**Fix 10: Stat Card Context Lines.** Added "across 10 threat categories" subtitle to the ASI Risks card. The Critical Risks card already had its context line from Fix 5 (v0.5.0). All four stat cards now have descriptive subtitles for visual consistency.
+
+---
+
 ## [0.5.1] — 2026-03-26
 
 ### Tier 1 Immediate Fixes — SEO, Accessibility, and Visual Polish
