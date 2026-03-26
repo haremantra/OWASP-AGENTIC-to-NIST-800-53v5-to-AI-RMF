@@ -399,12 +399,17 @@ export default function Home() {
                           >
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="cursor-help">{f.id}</span>
+                                <span 
+                                  className="cursor-help" 
+                                  title={`${f.id} — ${f.name}: ${descriptions[f.id]}`}
+                                >
+                                  {f.id}
+                                </span>
                               </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs font-normal max-w-xs">
-                                <div className="space-y-1">
+                              <TooltipContent side="top" className="text-xs font-normal w-80 bg-slate-900 border border-slate-700 text-slate-100">
+                                <div className="space-y-2 p-2">
                                   <div className="font-mono font-semibold">{f.id} — {f.name}</div>
-                                  <div className="text-slate-200">{descriptions[f.id]}</div>
+                                  <div className="text-slate-300 leading-relaxed whitespace-normal">{descriptions[f.id]}</div>
                                 </div>
                               </TooltipContent>
                             </Tooltip>
