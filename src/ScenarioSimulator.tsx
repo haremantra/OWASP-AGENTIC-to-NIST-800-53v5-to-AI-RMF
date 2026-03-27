@@ -147,61 +147,64 @@ function InfoBubble({
       ref={bubbleRef}
     >
       <div
-        className="rounded-lg p-3 border shadow-xl"
+        className="rounded-lg p-3 border shadow-xl overflow-hidden flex flex-col"
         style={{
-          backgroundColor: "var(--bg-surface-raised, #1E293B)",
-          borderColor: "rgba(255,255,255,0.1)",
-          width: 280,
+          backgroundColor: "#2563EB",
+          borderColor: "rgba(255,255,255,0.2)",
+          width: 320,
+          height: 280,
           fontSize: 14,
           lineHeight: 1.5,
         }}
       >
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="text-xs font-bold" style={{ color: "var(--text-primary, #E2E8F0)" }}>{info.title}</span>
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="p-0.5 rounded hover:bg-slate-700 transition-colors"
-            aria-label="Close tooltip"
-          >
-            <X className="w-3.5 h-3.5" style={{ color: "var(--text-secondary, #94A3B8)" }} />
-          </button>
-        </div>
-        <p className="text-[13px] leading-relaxed mb-3" style={{ color: "var(--text-secondary, #94A3B8)" }}>
-          {info.description}
-        </p>
-        {info.examples.length > 0 && (
-          <div className="mb-2">
-            <div className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: "var(--text-caption, #64748B)" }}>
-              Real-World Examples
+        <div className="overflow-y-auto flex-1 pr-2">
+          <div className="flex items-start justify-between mb-2 sticky top-0">
+            <div className="flex items-center gap-2">
+              <Info className="w-3.5 h-3.5 text-white shrink-0" />
+              <span className="text-xs font-bold text-white">{info.title}</span>
             </div>
-            <ul className="space-y-1">
-              {info.examples.map((ex, i) => (
-                <li key={i} className="text-[12px] flex items-start gap-1.5" style={{ color: "var(--text-secondary, #94A3B8)" }}>
-                  <span className="text-amber-500 mt-0.5 shrink-0">&#x2022;</span>
-                  {ex}
-                </li>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              className="p-0.5 rounded hover:bg-blue-600 transition-colors shrink-0"
+              aria-label="Close tooltip"
+            >
+              <X className="w-3.5 h-3.5 text-white" />
+            </button>
+          </div>
+          <p className="text-[13px] leading-relaxed mb-3 text-blue-100">
+            {info.description}
+          </p>
+          {info.examples.length > 0 && (
+            <div className="mb-2">
+              <div className="text-[10px] uppercase tracking-wider font-bold mb-1 text-blue-200">
+                Real-World Examples
+              </div>
+              <ul className="space-y-1">
+                {info.examples.map((ex, i) => (
+                  <li key={i} className="text-[12px] flex items-start gap-1.5 text-blue-100">
+                    <span className="text-blue-300 mt-0.5 shrink-0">&#x2022;</span>
+                    {ex}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {info.relatedASI.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {info.relatedASI.map((asi) => (
+                <span
+                  key={asi}
+                  className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-white/10 text-white border border-white/20"
+                >
+                  {asi}
+                </span>
               ))}
-            </ul>
-          </div>
-        )}
-        {info.relatedASI.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {info.relatedASI.map((asi) => (
-              <span
-                key={asi}
-                className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20"
-              >
-                {asi}
-              </span>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </motion.div>
   );
