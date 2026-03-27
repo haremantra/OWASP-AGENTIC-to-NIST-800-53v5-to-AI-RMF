@@ -110,13 +110,13 @@ function MappingCard({
                       {item.text}
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs">
+                  <TooltipContent side="right" className="max-w-xs" style={{ backgroundColor: "#2563EB", color: "white" }}>
                     <div className="text-xs">
                       <div className="font-bold mb-1">{controlDesc.title}</div>
-                      <div className="text-[11px] mb-2 text-slate-300">{controlDesc.description}</div>
-                      <div className="text-[10px] text-slate-400 italic mb-2">{controlDesc.implementation}</div>
+                      <div className="text-[11px] mb-2 text-blue-100">{controlDesc.description}</div>
+                      <div className="text-[10px] text-blue-200 italic mb-2">{controlDesc.implementation}</div>
                       {controlDesc.relatedASI.length > 0 && (
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-[10px] text-blue-100">
                           <span className="font-semibold">Related ASI:</span> {controlDesc.relatedASI.join(", ")}
                         </div>
                       )}
