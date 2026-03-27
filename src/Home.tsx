@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/tooltip";
 import ScenarioSimulator from "@/pages/ScenarioSimulator";
 import { NIST_CONTROL_DESCRIPTIONS } from "@/lib/nist-control-descriptions";
+import { NIST_AI_RMF_DESCRIPTIONS } from "@/lib/nist-ai-rmf-descriptions";
 
 const HERO_IMAGE = "https://d2xsxph8kpxj0f.cloudfront.net/310519663361461713/Bxv8kAWRJNLYA27hMDxSrg/hero-banner-WgxSTgdd9RwHSwF7ESq4Lf.webp";
 
@@ -69,9 +70,9 @@ function MappingCard({
   items: { id: string; text: string }[];
   color: string;
 }) {
-  // Extract control ID from text (e.g., "AC-3 Access Enforcement" -> "AC-3")
+  // Extract control ID from text (e.g., "AC-3 Access Enforcement" -> "AC-3" or "GV-1 Policies & Processes" -> "GV-1")
   const extractControlId = (text: string): string | null => {
-    const match = text.match(/^([A-Z]{2}-\d{1,2})\s/);
+    const match = text.match(/^([A-Z]{2,8}-\d{1,2})\s/);
     return match ? match[1] : null;
   };
 
@@ -93,7 +94,7 @@ function MappingCard({
         </div>
         {items.map((item, i) => {
           const controlId = extractControlId(item.text);
-          const controlDesc = controlId ? NIST_CONTROL_DESCRIPTIONS[controlId] : null;
+          const controlDesc = controlId ? (NIST_CONTROL_DESCRIPTIONS[controlId] || NIST_AI_RMF_DESCRIPTIONS[controlId]) : null;
           const isRationale = item.id === "\u21b3";
           
           return (
@@ -115,7 +116,7 @@ function MappingCard({
                       <div className="font-bold mb-1">{controlDesc.title}</div>
                       <div className="text-[11px] mb-2 text-blue-100">{controlDesc.description}</div>
                       <div className="text-[10px] text-blue-200 italic mb-2">{controlDesc.implementation}</div>
-                      {controlDesc.relatedASI.length > 0 && (
+                      {controlDesc.relatedASI && controlDesc.relatedASI.length > 0 && (
                         <div className="text-[10px] text-blue-100">
                           <span className="font-semibold">Related ASI:</span> {controlDesc.relatedASI.join(", ")}
                         </div>
