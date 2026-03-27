@@ -361,7 +361,7 @@ export default function Home() {
             </div>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-2 tracking-tight">
-            OWASP Agentic AI <span className="text-blue-400">↔</span> NIST Crosswalk
+            Agentic AI Risks
           </h1>
           <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
             Bridging ASI 2026 → NIST 800-53 Rev 5 → NIST AI-RMF 100-1. Interactive compliance mapping
